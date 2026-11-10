@@ -1,17 +1,31 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 
-/** Avatar d'un membre : son emoji sur sa couleur, à plat. */
+/** Avatar d'un membre : sa photo si elle existe, sinon son emoji sur sa couleur. */
 const props = withDefaults(
-  defineProps<{ emoji?: string; color?: string; size?: number; ring?: boolean; label?: string }>(),
-  { emoji: '🦄', color: '#c9a7f5', size: 40, ring: false, label: undefined },
+  defineProps<{
+    emoji?: string;
+    color?: string;
+    photo?: string | null;
+    size?: number;
+    ring?: boolean;
+    label?: string;
+  }>(),
+  { emoji: '🦄', color: '#c9a7f5', photo: null, size: 40, ring: false, label: undefined },
 );
+
+const failed = ref(false);
+watch(
+  () => props.photo,
+  () => (failed.value = false),
+);
+const showPhoto = computed(() => Boolean(props.photo) && !failed.value);
 
 const style = computed(() => ({
   width: `${props.size}px`,
   height: `${props.size}px`,
   fontSize: `${Math.round(props.size * 0.5)}px`,
-  background: props.color,
+  background: showPhoto.value ? 'var(--surface-2)' : props.color,
 }));
 </script>
 
@@ -23,8 +37,17 @@ const style = computed(() => ({
     :role="label ? 'img' : undefined"
     :aria-label="label"
     :aria-hidden="label ? undefined : 'true'"
-    >{{ emoji }}</span
   >
+    <img
+      v-if="showPhoto"
+      :src="photo!"
+      alt=""
+      loading="lazy"
+      decoding="async"
+      @error="failed = true"
+    />
+    <template v-else>{{ emoji }}</template>
+  </span>
 </template>
 
 <style scoped>
@@ -36,7 +59,15 @@ const style = computed(() => ({
   flex-shrink: 0;
   line-height: 1;
   user-select: none;
+  overflow: hidden;
   box-shadow: inset 0 0 0 1px rgba(28, 25, 23, 0.06);
+}
+
+img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .ring {

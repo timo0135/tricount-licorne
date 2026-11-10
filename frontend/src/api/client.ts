@@ -78,7 +78,8 @@ async function send(path: string, options: RequestInit): Promise<Response> {
       ...options,
       credentials: 'include',
       headers: {
-        'Content-Type': 'application/json',
+        // FormData : le navigateur pose lui-même l'en-tête multipart.
+        ...(typeof options.body === 'string' ? { 'Content-Type': 'application/json' } : {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(options.headers ?? {}),
       },
@@ -108,6 +109,9 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const payload = await response.json().catch(() => null);
 
   if (!response.ok) {
+    if (response.status === 413) {
+      throw new ApiError('Fichier trop lourd (8 Mo maximum).', 413);
+    }
     if (response.status === 429) {
       throw new ApiError('Trop de tentatives. Patiente une minute avant de réessayer.', 429);
     }
@@ -129,4 +133,10 @@ export const api = {
   patch: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: 'PATCH', body: JSON.stringify(body ?? {}) }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+  /** Envoi d'un fichier (champ multipart « file »). */
+  upload: <T>(path: string, file: Blob, method: 'PUT' | 'POST' = 'PUT') => {
+    const body = new FormData();
+    body.append('file', file);
+    return request<T>(path, { method, body });
+  },
 };

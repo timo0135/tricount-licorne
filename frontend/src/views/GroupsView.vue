@@ -44,7 +44,12 @@ const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? 's' : ''}`;
         <h1>Troupeaux</h1>
       </div>
       <button class="avatar-btn" aria-label="Mon profil" @click="router.push('/profile')">
-        <UnicornAvatar :emoji="auth.user?.emoji" :color="auth.user?.color" :size="40" />
+        <UnicornAvatar
+          :emoji="auth.user?.emoji"
+          :color="auth.user?.color"
+          :photo="auth.user?.avatarUrl"
+          :size="40"
+        />
       </button>
     </header>
 
@@ -81,7 +86,7 @@ const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? 's' : ''}`;
           :to="`/groups/${group.id}`"
           class="list-row"
         >
-          <GroupAvatar :emoji="group.emoji" :tint="group.gradient" />
+          <GroupAvatar :emoji="group.emoji" :tint="group.gradient" :photo="group.photoUrl" />
           <div class="grow">
             <p class="list-title truncate">{{ group.name }}</p>
             <p class="list-sub truncate">

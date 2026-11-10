@@ -14,8 +14,13 @@ API **NestJS + Prisma + PostgreSQL**, front **Vue 3 + Vite + TypeScript**, le to
 
 ## Fonctionnalités
 
-- **Comptes** : inscription, connexion, session de 30 jours renouvelée automatiquement, profil (avatar licorne et couleur).
-- **Troupeaux** (groupes) : création, code d'invitation à partager, membres, rôles créateur et membre.
+- **Comptes** : inscription, connexion, session de 30 jours renouvelée automatiquement, profil
+  (photo, ou avatar licorne et couleur).
+- **Troupeaux** (groupes) : création, code d'invitation à partager, membres, rôles créateur et membre,
+  photo et bannière personnalisables.
+- **Familles** : plusieurs membres d'une même famille comptent pour une seule entité dans le
+  troupeau (un coefficient commun partagé à parts égales, un solde commun, des remboursements communs).
+  Chacun garde son compte et peut payer des dépenses.
 - **Coefficients** : une matrice membre × catégorie en pourcentages (40 % du logement, 25 % des courses…).
   Un coefficient de 0 % exclut la personne de la catégorie.
 - **Dépenses** : répartition automatique selon les coefficients, ou personnalisée pour une dépense
@@ -91,8 +96,9 @@ L'installation exige une adresse **HTTPS** : elle sera possible une fois l'appli
 cd backend && npm test
 ```
 
-37 tests unitaires : répartition au centime près, soldes et simplification des dettes,
-normalisation des coefficients, validation de la configuration, rotation des sessions.
+48 tests unitaires : répartition au centime près, soldes et simplification des dettes,
+normalisation des coefficients, familles (entités), traitement des photos, validation de la
+configuration, rotation des sessions.
 
 ## Sécurité
 
@@ -117,12 +123,14 @@ licorne-tricount/
 │   ├── Dockerfile, docker-entrypoint.sh   # migrations puis démarrage
 │   ├── prisma/
 │   │   ├── schema.prisma
-│   │   ├── migrations/                    # 0_init, 1_refresh_tokens
+│   │   ├── migrations/                    # 0_init, 1_refresh_tokens, 2_families_and_photos
 │   │   └── seed.ts
 │   └── src/
 │       ├── config/          # validation des variables d'environnement
 │       ├── auth/            # JWT, sessions à rafraîchissement, guard global
 │       ├── health/          # GET /api/health
+│       ├── families/        # familles et calculs par entité (parties.util.ts)
+│       ├── uploads/         # photos : recadrage WebP (sharp), servies sous /api/uploads/
 │       ├── users/  groups/  expenses/  balances/  coefficients/  settlements/
 │       └── common/          # répartition au centime, catégories
 └── frontend/
@@ -148,10 +156,14 @@ le renouvellement de session, la déconnexion et la sonde de santé.
 | POST | `/auth/refresh`, `/auth/logout` | Renouveler ou fermer la session (cookie) |
 | GET | `/auth/me` | Utilisateur connecté |
 | PATCH | `/users/me` | Modifier nom, avatar, couleur |
+| PUT / DELETE | `/users/me/avatar` | Photo de profil (multipart, champ `file`) |
 | GET / POST | `/groups` | Lister, créer un troupeau |
 | POST | `/groups/join` | Rejoindre avec un code |
 | GET / PATCH / DELETE | `/groups/:id` | Lire, modifier, supprimer |
 | POST | `/groups/:id/invite-code` | Régénérer le code d'invitation |
+| PUT / DELETE | `/groups/:id/photo`, `/groups/:id/banner` | Photo (carrée) et bannière (3:1) du troupeau |
+| POST | `/groups/:id/families` | Créer une famille |
+| PATCH / DELETE | `/groups/:id/families/:familyId` | Modifier ou dissoudre une famille |
 | DELETE | `/groups/:id/members/:userId` | Quitter ou retirer un membre |
 | GET | `/groups/:id/balances` | Soldes et remboursements suggérés |
 | GET / PUT | `/groups/:id/coefficients` | Matrice des coefficients |
@@ -166,9 +178,14 @@ le renouvellement de session, la déconnexion et la sonde de santé.
 ## Calculs
 
 ```
-part d'un membre = montant × son coefficient dans la catégorie   (plus fort reste au centime)
-solde            = payé − dû + remboursements envoyés − remboursements reçus
+part d'une entité = montant × son coefficient dans la catégorie   (plus fort reste au centime)
+part d'un membre  = part de sa famille ÷ nombre de membres        (s'il est dans une famille)
+solde             = payé − dû + remboursements envoyés − remboursements reçus
 ```
+
+Une entité est une famille ou un membre seul. Le coefficient d'une famille est la somme de ceux de
+ses membres ; les soldes et les remboursements suggérés sont calculés par entité, donc deux membres
+d'une même famille ne se remboursent jamais entre eux.
 
 Un solde positif signifie qu'on doit de l'argent au membre. La somme des soldes d'un troupeau est
 toujours nulle. Les remboursements suggérés apparient le plus gros débiteur au plus gros créancier,

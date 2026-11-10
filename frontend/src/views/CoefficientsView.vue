@@ -16,7 +16,7 @@ import {
 import { CircleAlert, Copy, Equal, RefreshCw, Wand2 } from 'lucide-vue-next';
 import { useConfirmStore } from '@/stores/confirm';
 import AppHeader from '@/components/AppHeader.vue';
-import UnicornAvatar from '@/components/UnicornAvatar.vue';
+import PartyAvatar from '@/components/PartyAvatar.vue';
 import CategoryIcon from '@/components/CategoryIcon.vue';
 import LoadingState from '@/components/LoadingState.vue';
 
@@ -36,7 +36,12 @@ const error = ref('');
 const ready = ref(false);
 
 const matrix = computed(() => store.coefficients);
-const members = computed(() => matrix.value?.members ?? []);
+/** Lignes de la matrice : une par entité (famille ou membre seul). */
+const members = computed(() => matrix.value?.parties ?? []);
+const usersOf = (party: { userIds: string[] }) =>
+  party.userIds
+    .map((id) => matrix.value?.members.find((u) => u.id === id))
+    .filter((u): u is NonNullable<typeof u> => Boolean(u));
 const categories = computed(() => Object.keys(CATEGORY_META));
 const currency = computed(() => store.current?.currency ?? 'EUR');
 
@@ -69,7 +74,7 @@ onMounted(async () => {
     const next: Record<string, Record<string, string>> = {};
     for (const entry of data.categories) {
       next[entry.category] = Object.fromEntries(
-        entry.shares.map((s) => [s.userId, bpToInput(s.shareBp)]),
+        entry.shares.map((s) => [s.partyId, bpToInput(s.shareBp)]),
       );
     }
     draft.value = next;
@@ -126,7 +131,7 @@ async function save() {
   const payload: CategoryCoefficients[] = categories.value.map((category) => ({
     category,
     shares: members.value.map((m) => ({
-      userId: m.id,
+      partyId: m.id,
       shareBp: parseInputToBp(draft.value[category]?.[m.id] ?? '0'),
     })),
   }));
@@ -173,7 +178,8 @@ async function applyToExisting() {
     <div v-else class="stack">
       <p class="alert alert-info">
         Chaque dépense est répartie selon ces pourcentages. Un coefficient de 0 % exclut la
-        personne de la catégorie.
+        personne de la catégorie. Une famille a un seul coefficient, partagé à parts égales
+        entre ses membres.
       </p>
 
       <div class="scroller" role="tablist" aria-label="Catégories">
@@ -202,10 +208,13 @@ async function applyToExisting() {
         </div>
 
         <div v-for="m in members" :key="m.id" class="list-row">
-          <UnicornAvatar :emoji="m.emoji" :color="m.color" :size="36" />
+          <PartyAvatar :members="usersOf(m)" :family="m.kind === 'family'" :size="36" />
           <div class="grow">
             <p class="list-title truncate">{{ m.name }}</p>
-            <p class="list-sub num">sur 100 € : {{ formatMoney(exampleFor(m.id), currency) }}</p>
+            <p class="list-sub num truncate">
+              <template v-if="m.kind === 'family'">{{ m.userIds.length }} membres · </template>sur
+              100 € : {{ formatMoney(exampleFor(m.id), currency) }}
+            </p>
           </div>
           <div class="pct">
             <input

@@ -20,6 +20,8 @@ export const authApi = {
   logout: () => api.post<void>('/auth/logout'),
   updateProfile: (body: { name?: string; emoji?: string; color?: string }) =>
     api.patch<User>('/users/me', body),
+  setAvatar: (file: Blob) => api.upload<User>('/users/me/avatar', file),
+  removeAvatar: () => api.delete<User>('/users/me/avatar'),
 };
 
 export const groupsApi = {
@@ -35,6 +37,18 @@ export const groupsApi = {
   balances: (id: string) => api.get<BalanceSummary>(`/groups/${id}/balances`),
   regenerateInvite: (id: string) =>
     api.post<{ id: string; inviteCode: string }>(`/groups/${id}/invite-code`),
+  setImage: (id: string, kind: 'photo' | 'banner', file: Blob) =>
+    api.upload<Group>(`/groups/${id}/${kind}`, file),
+  removeImage: (id: string, kind: 'photo' | 'banner') => api.delete<Group>(`/groups/${id}/${kind}`),
+};
+
+export const familiesApi = {
+  create: (groupId: string, body: { name: string; memberIds: string[] }) =>
+    api.post<Group>(`/groups/${groupId}/families`, body),
+  update: (groupId: string, familyId: string, body: { name?: string; memberIds?: string[] }) =>
+    api.patch<Group>(`/groups/${groupId}/families/${familyId}`, body),
+  remove: (groupId: string, familyId: string) =>
+    api.delete<Group>(`/groups/${groupId}/families/${familyId}`),
 };
 
 export const expensesApi = {

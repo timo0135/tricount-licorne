@@ -457,6 +457,9 @@ a.list-row:active,
 }
 
 .text-btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
   background: none;
   border: none;
   padding: 0.25rem;

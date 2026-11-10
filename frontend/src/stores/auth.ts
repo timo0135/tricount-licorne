@@ -19,8 +19,8 @@ const userCache = {
   },
   write(user: User) {
     try {
-      const { id, name, emoji, color } = user;
-      localStorage.setItem(USER_CACHE_KEY, JSON.stringify({ id, name, emoji, color }));
+      const { id, name, emoji, color, avatarUrl } = user;
+      localStorage.setItem(USER_CACHE_KEY, JSON.stringify({ id, name, emoji, color, avatarUrl }));
     } catch {
       /* stockage indisponible */
     }
@@ -94,12 +94,23 @@ export const useAuthStore = defineStore('auth', () => {
     setUser(await authApi.updateProfile(payload));
   }
 
+  async function setAvatar(file: Blob) {
+    setUser(await authApi.setAvatar(file));
+  }
+
+  async function removeAvatar() {
+    setUser(await authApi.removeAvatar());
+  }
+
   /** Efface la session locale (jeton, profil en cache, réponses API en cache). */
   function clearLocal() {
     tokenStore.clear();
     user.value = null;
     userCache.clear();
-    if ('caches' in window) caches.delete(API_CACHE).catch(() => undefined);
+    if ('caches' in window) {
+      caches.delete(API_CACHE).catch(() => undefined);
+      caches.delete('lt-images').catch(() => undefined);
+    }
   }
 
   async function logout() {
@@ -121,6 +132,8 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     register,
     updateProfile,
+    setAvatar,
+    removeAvatar,
     logout,
     clearLocal,
   };

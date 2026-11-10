@@ -9,19 +9,24 @@ import {
   Plus,
   Receipt,
   RefreshCw,
+  Settings,
   Share2,
   SlidersHorizontal,
   Trash2,
+  UsersRound,
 } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/auth';
 import { useGroupsStore } from '@/stores/groups';
 import { useToastStore } from '@/stores/toast';
 import { useConfirmStore } from '@/stores/confirm';
 import { groupsApi } from '@/api';
-import type { Expense } from '@/api/types';
+import type { Expense, PartyInfo, Reimbursement, User } from '@/api/types';
 import { dayLabel, displayName, formatDate, formatMoney } from '@/utils/format';
 import AppHeader from '@/components/AppHeader.vue';
 import UnicornAvatar from '@/components/UnicornAvatar.vue';
+import GroupAvatar from '@/components/GroupAvatar.vue';
+import GroupBanner from '@/components/GroupBanner.vue';
+import PartyAvatar from '@/components/PartyAvatar.vue';
 import ExpenseRow from '@/components/ExpenseRow.vue';
 import BalanceRow from '@/components/BalanceRow.vue';
 import EmptyState from '@/components/EmptyState.vue';
@@ -71,6 +76,21 @@ const expensesByDay = computed(() => {
 });
 
 const myBalance = computed(() => group.value?.myBalanceCents ?? 0);
+
+/** Familles du troupeau avec leurs membres. */
+const families = computed(() =>
+  (group.value?.families ?? []).map((f) => ({
+    ...f,
+    members: (group.value?.members ?? []).filter((m) => m.familyId === f.id).map((m) => m.user),
+  })),
+);
+const familyName = (familyId: string | null) =>
+  families.value.find((f) => f.id === familyId)?.name ?? '';
+
+const includesMe = (party: { members: User[] }) => party.members.some((m) => m.id === meId.value);
+/** « Toi » pour un membre seul qui est l'utilisateur, sinon le nom de l'entité. */
+const partyLabel = (party: PartyInfo) =>
+  party.kind === 'member' && includesMe(party) ? 'Toi' : party.name;
 
 onMounted(async () => {
   try {
@@ -177,32 +197,63 @@ async function destroy() {
   }
 }
 
-const settlePrefill = (fromUserId: string, toUserId: string, amountCents: number) =>
+/** Pré-remplit le remboursement ; si je fais partie de l'entité qui paie, c'est moi qui paie. */
+const settlePrefill = (r: Reimbursement) =>
   router.push({
     name: 'settle',
     params: { id: props.id },
-    query: { from: fromUserId, to: toUserId, amount: String(amountCents) },
+    query: {
+      from: includesMe(r.from) ? meId.value : r.fromUserId,
+      to: r.toUserId,
+      amount: String(r.amountCents),
+    },
   });
 </script>
 
 <template>
   <main class="page">
-    <AppHeader :title="group?.name ?? 'Troupeau'" :subtitle="group?.description ?? undefined" back="/" />
+    <AppHeader back="/">
+      <template #action>
+        <RouterLink
+          v-if="group"
+          :to="`/groups/${id}/settings`"
+          class="icon-btn"
+          aria-label="Réglages du troupeau"
+        >
+          <Settings :size="20" :stroke-width="1.75" />
+        </RouterLink>
+      </template>
+    </AppHeader>
 
     <LoadingState v-if="!group" />
 
     <template v-else>
-      <section class="card overview">
-        <div>
-          <p class="muted">Total des dépenses</p>
-          <p class="figure num">{{ formatMoney(group.totalCents, currency) }}</p>
-        </div>
-        <div class="sep" />
-        <div>
-          <p class="muted">Ton solde</p>
-          <p class="figure num" :class="{ positive: myBalance > 0, negative: myBalance < 0 }">
-            {{ myBalance > 0 ? '+' : myBalance < 0 ? '−' : '' }}{{ formatMoney(Math.abs(myBalance), currency) }}
-          </p>
+      <section class="hero card">
+        <GroupBanner :url="group.bannerUrl" :tint="group.gradient" />
+        <div class="hero-body">
+          <GroupAvatar
+            class="hero-avatar"
+            :emoji="group.emoji"
+            :tint="group.gradient"
+            :photo="group.photoUrl"
+            :size="64"
+            ring
+          />
+          <h1 class="hero-title">{{ group.name }}</h1>
+          <p v-if="group.description" class="muted hero-desc">{{ group.description }}</p>
+          <div class="overview">
+            <div>
+              <p class="muted">Total des dépenses</p>
+              <p class="figure num">{{ formatMoney(group.totalCents, currency) }}</p>
+            </div>
+            <div class="sep" />
+            <div>
+              <p class="muted">{{ group.members.find((m) => m.user.id === meId)?.familyId ? 'Solde de ta famille' : 'Ton solde' }}</p>
+              <p class="figure num" :class="{ positive: myBalance > 0, negative: myBalance < 0 }">
+                {{ myBalance > 0 ? '+' : myBalance < 0 ? '−' : '' }}{{ formatMoney(Math.abs(myBalance), currency) }}
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -249,17 +300,18 @@ const settlePrefill = (fromUserId: string, toUserId: string, amountCents: number
           <div class="section-head">
             <h2 class="section-title">Soldes</h2>
             <span class="faint num">
-              moyenne {{ formatMoney(store.balances?.averagePerMemberCents ?? 0, currency) }} / membre
+              moyenne {{ formatMoney(store.balances?.averagePerPartyCents ?? 0, currency) }}
+              {{ group.families.length ? '/ entité' : '/ membre' }}
             </span>
           </div>
           <div class="list">
             <BalanceRow
               v-for="b in store.balances?.balances ?? []"
-              :key="b.userId"
+              :key="b.partyId"
               :balance="b"
               :currency="currency"
               :max="maxBalance"
-              :is-me="b.userId === meId"
+              :is-me="includesMe(b)"
             />
           </div>
         </div>
@@ -269,20 +321,15 @@ const settlePrefill = (fromUserId: string, toUserId: string, amountCents: number
           <div v-if="store.balances?.reimbursements.length" class="list">
             <div v-for="(r, i) in store.balances.reimbursements" :key="i" class="list-row">
               <div class="pair" aria-hidden="true">
-                <UnicornAvatar :emoji="r.fromUser?.emoji" :color="r.fromUser?.color" :size="28" />
+                <PartyAvatar :members="r.from.members" :family="r.from.kind === 'family'" :size="28" />
                 <ArrowRight :size="14" class="faint" />
-                <UnicornAvatar :emoji="r.toUser?.emoji" :color="r.toUser?.color" :size="28" />
+                <PartyAvatar :members="r.to.members" :family="r.to.kind === 'family'" :size="28" />
               </div>
               <div class="grow">
-                <p class="list-title truncate">
-                  {{ displayName(r.fromUser, meId) }} → {{ displayName(r.toUser, meId) }}
-                </p>
+                <p class="list-title truncate">{{ partyLabel(r.from) }} → {{ partyLabel(r.to) }}</p>
                 <p class="list-sub num">{{ formatMoney(r.amountCents, currency) }}</p>
               </div>
-              <button
-                class="btn btn-sm btn-secondary"
-                @click="settlePrefill(r.fromUserId, r.toUserId, r.amountCents)"
-              >
+              <button class="btn btn-sm btn-secondary" @click="settlePrefill(r)">
                 Régler
               </button>
             </div>
@@ -345,13 +392,48 @@ const settlePrefill = (fromUserId: string, toUserId: string, amountCents: number
         </div>
 
         <div>
+          <div class="section-head">
+            <h2 class="section-title">Familles</h2>
+            <RouterLink :to="`/groups/${id}/families/new`" class="text-btn">Créer une famille</RouterLink>
+          </div>
+          <div v-if="families.length" class="list">
+            <RouterLink
+              v-for="f in families"
+              :key="f.id"
+              :to="`/groups/${id}/families/${f.id}`"
+              class="list-row"
+            >
+              <PartyAvatar :members="f.members" family :size="36" />
+              <div class="grow">
+                <p class="list-title truncate">{{ f.name }}</p>
+                <p class="list-sub truncate">{{ f.members.map((u) => u.name).join(', ') }}</p>
+              </div>
+              <ChevronRight class="chevron" :size="18" />
+            </RouterLink>
+          </div>
+          <p v-else class="alert alert-info family-hint">
+            <UsersRound :size="16" :stroke-width="1.75" />
+            Regroupe les membres d'une même famille : ils auront un coefficient, un solde et des
+            remboursements communs.
+          </p>
+        </div>
+
+        <div>
           <h2 class="section-title">{{ group.members.length }} membre{{ group.members.length > 1 ? 's' : '' }}</h2>
           <div class="list">
             <div v-for="m in group.members" :key="m.id" class="list-row">
-              <UnicornAvatar :emoji="m.user.emoji" :color="m.user.color" :size="36" />
-              <p class="grow list-title truncate">
-                {{ m.user.name }}<span v-if="m.user.id === meId" class="faint"> (toi)</span>
-              </p>
+              <UnicornAvatar
+                :emoji="m.user.emoji"
+                :color="m.user.color"
+                :photo="m.user.avatarUrl"
+                :size="36"
+              />
+              <div class="grow">
+                <p class="list-title truncate">
+                  {{ m.user.name }}<span v-if="m.user.id === meId" class="faint"> (toi)</span>
+                </p>
+                <p v-if="m.familyId" class="list-sub truncate">{{ familyName(m.familyId) }}</p>
+              </div>
               <span v-if="m.role === 'OWNER'" class="badge">Créateur</span>
             </div>
           </div>
@@ -384,11 +466,42 @@ const settlePrefill = (fromUserId: string, toUserId: string, amountCents: number
 </template>
 
 <style scoped>
+.hero {
+  padding: 0;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.hero-body {
+  padding: 0 1rem 1rem;
+}
+
+.hero-avatar {
+  margin-top: -32px;
+  position: relative;
+}
+
+.hero-title {
+  font-size: var(--fs-xl);
+  letter-spacing: -0.02em;
+  margin-top: 0.5rem;
+}
+
+.hero-desc {
+  margin-top: 0.125rem;
+}
+
 .overview {
   display: flex;
   align-items: center;
   gap: 1rem;
-  margin-bottom: 1rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.family-hint {
+  align-items: flex-start;
 }
 
 .overview > div:not(.sep) {

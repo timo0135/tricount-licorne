@@ -2,7 +2,7 @@
 import { useRouter } from 'vue-router';
 import { ArrowLeft } from 'lucide-vue-next';
 
-const props = defineProps<{ title: string; subtitle?: string; back?: boolean | string }>();
+const props = defineProps<{ title?: string; subtitle?: string; back?: boolean | string }>();
 const router = useRouter();
 
 const goBack = () => {
@@ -18,7 +18,7 @@ const goBack = () => {
       <ArrowLeft :size="22" :stroke-width="1.75" />
     </button>
     <div class="grow titles">
-      <h1 class="truncate">{{ title }}</h1>
+      <h1 v-if="title" class="truncate">{{ title }}</h1>
       <p v-if="subtitle" class="muted truncate">{{ subtitle }}</p>
     </div>
     <slot name="action" />

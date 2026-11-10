@@ -33,6 +33,14 @@ const meId = computed(() => auth.user?.id ?? '');
 const userOf = (id: string) => members.value.find((m) => m.user.id === id)?.user;
 const nameOf = (id: string) => (id === meId.value ? 'Toi' : (userOf(id)?.name ?? '—'));
 const cents = computed(() => parseAmountToCents(amount.value));
+const familyName = (familyId: string | null) =>
+  group.value?.families.find((f) => f.id === familyId)?.name;
+/** « Alice (toi) · Famille Martin » : le remboursement compte pour toute la famille. */
+const optionLabel = (m: { familyId: string | null; user: { id: string; name: string } }) => {
+  const base = m.user.id === meId.value ? `${m.user.name} (toi)` : m.user.name;
+  const family = familyName(m.familyId);
+  return family ? `${base} · ${family}` : base;
+};
 
 function swap() {
   [fromUserId.value, toUserId.value] = [toUserId.value, fromUserId.value];
@@ -106,10 +114,15 @@ async function submit() {
         <div class="field">
           <label class="label" for="from">De</label>
           <div class="party">
-            <UnicornAvatar :emoji="userOf(fromUserId)?.emoji" :color="userOf(fromUserId)?.color" :size="36" />
+            <UnicornAvatar
+              :emoji="userOf(fromUserId)?.emoji"
+              :color="userOf(fromUserId)?.color"
+              :photo="userOf(fromUserId)?.avatarUrl"
+              :size="36"
+            />
             <select id="from" v-model="fromUserId" class="select">
               <option v-for="m in members" :key="m.id" :value="m.user.id">
-                {{ m.user.id === meId ? `${m.user.name} (toi)` : m.user.name }}
+                {{ optionLabel(m) }}
               </option>
             </select>
           </div>
@@ -126,10 +139,15 @@ async function submit() {
         <div class="field">
           <label class="label" for="to">À</label>
           <div class="party">
-            <UnicornAvatar :emoji="userOf(toUserId)?.emoji" :color="userOf(toUserId)?.color" :size="36" />
+            <UnicornAvatar
+              :emoji="userOf(toUserId)?.emoji"
+              :color="userOf(toUserId)?.color"
+              :photo="userOf(toUserId)?.avatarUrl"
+              :size="36"
+            />
             <select id="to" v-model="toUserId" class="select">
               <option v-for="m in members" :key="m.id" :value="m.user.id">
-                {{ m.user.id === meId ? `${m.user.name} (toi)` : m.user.name }}
+                {{ optionLabel(m) }}
               </option>
             </select>
           </div>

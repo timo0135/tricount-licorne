@@ -4,6 +4,8 @@ export interface User {
   name: string;
   emoji: string;
   color: string;
+  /** Photo de profil ; quand elle existe, elle remplace l'emoji. */
+  avatarUrl?: string | null;
 }
 
 export type Role = 'OWNER' | 'MEMBER';
@@ -13,7 +15,14 @@ export interface Member {
   id: string;
   role: Role;
   joinedAt: string;
+  familyId: string | null;
   user: User;
+}
+
+/** Famille d'un troupeau : plusieurs membres qui comptent pour une seule entité. */
+export interface Family {
+  id: string;
+  name: string;
 }
 
 export interface Group {
@@ -23,10 +32,13 @@ export interface Group {
   currency: string;
   emoji: string;
   gradient: string;
+  photoUrl: string | null;
+  bannerUrl: string | null;
   inviteCode: string;
   createdAt: string;
   updatedAt: string;
   members: Member[];
+  families: Family[];
   expenseCount: number;
   totalCents: number;
   myBalanceCents: number;
@@ -52,27 +64,39 @@ export interface Expense {
   shares: ExpenseShare[];
 }
 
-export interface Balance {
-  userId: string;
+/** Entité d'un troupeau : une famille, ou un membre seul. */
+export type PartyKind = 'family' | 'member';
+
+export interface PartyInfo {
+  partyId: string;
+  kind: PartyKind;
+  familyId: string | null;
+  name: string;
+  members: User[];
+}
+
+export interface PartyBalance extends PartyInfo {
   paidCents: number;
   owedCents: number;
   balanceCents: number;
-  user?: User;
 }
 
 export interface Reimbursement {
+  fromPartyId: string;
+  toPartyId: string;
+  amountCents: number;
+  from: PartyInfo;
+  to: PartyInfo;
+  /** Personnes proposées par défaut pour enregistrer le virement. */
   fromUserId: string;
   toUserId: string;
-  amountCents: number;
-  fromUser?: User;
-  toUser?: User;
 }
 
 export interface BalanceSummary {
   groupId: string;
   totalCents: number;
-  averagePerMemberCents: number;
-  balances: Balance[];
+  averagePerPartyCents: number;
+  balances: PartyBalance[];
   reimbursements: Reimbursement[];
 }
 
@@ -85,22 +109,31 @@ export interface Settlement {
   toUser: User;
 }
 
-/** Coefficients : 10 000 points de base = 100 %. */
-export interface CoefficientShare {
-  userId: string;
+/** Coefficients : 10 000 points de base = 100 %, saisis par entité. */
+export interface PartyShare {
+  partyId: string;
   shareBp: number;
 }
 
 export interface CategoryCoefficients {
   category: string;
-  shares: CoefficientShare[];
+  shares: PartyShare[];
+}
+
+export interface MatrixParty {
+  id: string;
+  kind: PartyKind;
+  familyId: string | null;
+  name: string;
+  userIds: string[];
 }
 
 export interface CoefficientMatrix {
   groupId: string;
   totalBp: number;
-  members: User[];
-  categories: CategoryCoefficients[];
+  members: (User & { familyId: string | null })[];
+  parties: MatrixParty[];
+  categories: (CategoryCoefficients & { memberShares: { userId: string; shareBp: number }[] })[];
 }
 
 export interface CategoryStat {

@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import { coefficientsApi, expensesApi, groupsApi, settlementsApi } from '@/api';
+import { coefficientsApi, expensesApi, familiesApi, groupsApi, settlementsApi } from '@/api';
 import type {
   BalanceSummary,
   CategoryCoefficients,
@@ -134,6 +134,48 @@ export const useGroupsStore = defineStore('groups', () => {
     groups.value = groups.value.filter((g) => g.id !== groupId);
   }
 
+  /** Remplace le troupeau courant (et sa carte dans la liste) par sa version à jour. */
+  function applyGroup(group: Group) {
+    current.value = group;
+    groups.value = groups.value.map((g) => (g.id === group.id ? group : g));
+    return group;
+  }
+
+  async function updateGroup(id: string, body: Record<string, unknown>) {
+    return applyGroup(await groupsApi.update(id, body));
+  }
+
+  async function setGroupImage(id: string, kind: 'photo' | 'banner', file: Blob) {
+    return applyGroup(await groupsApi.setImage(id, kind, file));
+  }
+
+  async function removeGroupImage(id: string, kind: 'photo' | 'banner') {
+    return applyGroup(await groupsApi.removeImage(id, kind));
+  }
+
+  /** Les familles changent les coefficients et les soldes : on recharge tout. */
+  async function createFamily(groupId: string, body: { name: string; memberIds: string[] }) {
+    applyGroup(await familiesApi.create(groupId, body));
+    await refresh(groupId);
+    coefficients.value = null;
+  }
+
+  async function updateFamily(
+    groupId: string,
+    familyId: string,
+    body: { name?: string; memberIds?: string[] },
+  ) {
+    applyGroup(await familiesApi.update(groupId, familyId, body));
+    await refresh(groupId);
+    coefficients.value = null;
+  }
+
+  async function deleteFamily(groupId: string, familyId: string) {
+    applyGroup(await familiesApi.remove(groupId, familyId));
+    await refresh(groupId);
+    coefficients.value = null;
+  }
+
   function reset() {
     groups.value = [];
     current.value = null;
@@ -169,6 +211,12 @@ export const useGroupsStore = defineStore('groups', () => {
     deleteSettlement,
     leaveGroup,
     deleteGroup,
+    updateGroup,
+    setGroupImage,
+    removeGroupImage,
+    createFamily,
+    updateFamily,
+    deleteFamily,
     reset,
   };
 });

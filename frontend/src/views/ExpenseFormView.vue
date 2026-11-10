@@ -14,12 +14,14 @@ import {
   formatMoney,
   formatPercent,
   parseAmountToCents,
+  splitCents,
   toDateInput,
 } from '@/utils/format';
 import { Check, CircleAlert, Minus, Pencil, Plus, Trash2, Wand2 } from 'lucide-vue-next';
 import { useConfirmStore } from '@/stores/confirm';
 import AppHeader from '@/components/AppHeader.vue';
 import UnicornAvatar from '@/components/UnicornAvatar.vue';
+import PartyAvatar from '@/components/PartyAvatar.vue';
 import CategoryIcon from '@/components/CategoryIcon.vue';
 import LoadingState from '@/components/LoadingState.vue';
 
@@ -36,6 +38,7 @@ interface ParticipantRow {
   name: string;
   emoji: string;
   color: string;
+  photo: string | null;
   selected: boolean;
   weight: number;
   amount: string;
@@ -69,8 +72,35 @@ const selectedRows = computed(() => rows.value.filter((r) => r.selected));
 /** Coefficients du troupeau pour la catégorie choisie (points de base). */
 const autoWeights = computed<Map<string, number>>(() => {
   const entry = store.coefficients?.categories.find((c) => c.category === category.value);
-  return new Map((entry?.shares ?? []).map((s) => [s.userId, s.shareBp]));
+  return new Map((entry?.memberShares ?? []).map((s) => [s.userId, s.shareBp]));
 });
+
+/**
+ * Aperçu de la répartition automatique par entité : une famille est une seule
+ * ligne (son coefficient est la somme de ceux de ses membres).
+ */
+const autoParties = computed(() => {
+  const matrix = store.coefficients;
+  if (!matrix) return [];
+  const entry = matrix.categories.find((c) => c.category === category.value);
+  const rows = matrix.parties.map((party) => ({
+    party,
+    bp: entry?.shares.find((s) => s.partyId === party.id)?.shareBp ?? 0,
+    users: party.userIds
+      .map((id) => matrix.members.find((u) => u.id === id))
+      .filter((u): u is NonNullable<typeof u> => Boolean(u)),
+  }));
+  const anyWeight = rows.some((r) => r.bp > 0);
+  // Sans coefficient, le serveur partage à parts égales entre les personnes.
+  const amounts = splitCents(
+    totalCents.value,
+    rows.map((r) => (anyWeight ? r.bp : r.users.length)),
+  );
+  return rows.map((r, i) => ({ ...r, amount: amounts[i] }));
+});
+
+const partyLabel = (party: { kind: string; name: string; userIds: string[] }) =>
+  party.kind === 'member' && party.userIds[0] === auth.user?.id ? 'Toi' : party.name;
 
 const autoIsUsable = computed(() =>
   [...autoWeights.value.values()].some((bp) => bp > 0),
@@ -126,6 +156,7 @@ function buildRows() {
     name: m.user.id === auth.user?.id ? 'Toi' : m.user.name,
     emoji: m.user.emoji,
     color: m.user.color,
+    photo: m.user.avatarUrl ?? null,
     selected: true,
     weight: 1,
     amount: '',
@@ -363,7 +394,7 @@ async function destroy() {
             :class="{ active: paidById === r.userId }"
             @click="paidById = r.userId"
           >
-            <UnicornAvatar :emoji="r.emoji" :color="r.color" :size="24" />
+            <UnicornAvatar :emoji="r.emoji" :color="r.color" :photo="r.photo" :size="24" />
             {{ r.name }}
           </button>
         </div>
@@ -381,11 +412,16 @@ async function destroy() {
           <span class="badge badge-accent"><Wand2 :size="12" :stroke-width="2" /> Automatique</span>
         </div>
         <div class="list">
-          <div v-for="r in rows" :key="r.userId" class="list-row compact" :class="{ off: !r.selected }">
-            <UnicornAvatar :emoji="r.emoji" :color="r.color" :size="32" />
-            <span class="grow list-title truncate">{{ r.name }}</span>
-            <span class="faint num pct">{{ formatPercent(autoWeights.get(r.userId) ?? 0) }}</span>
-            <span class="share num">{{ formatMoney(preview[r.userId] ?? 0, currency) }}</span>
+          <div
+            v-for="p in autoParties"
+            :key="p.party.id"
+            class="list-row compact"
+            :class="{ off: autoIsUsable && p.bp === 0 }"
+          >
+            <PartyAvatar :members="p.users" :family="p.party.kind === 'family'" :size="32" />
+            <span class="grow list-title truncate">{{ partyLabel(p.party) }}</span>
+            <span class="faint num pct">{{ formatPercent(p.bp) }}</span>
+            <span class="share num">{{ formatMoney(p.amount, currency) }}</span>
           </div>
         </div>
         <p class="hint explain">
@@ -436,7 +472,7 @@ async function destroy() {
             >
               <Check v-if="r.selected" :size="14" :stroke-width="3" />
             </button>
-            <UnicornAvatar :emoji="r.emoji" :color="r.color" :size="32" />
+            <UnicornAvatar :emoji="r.emoji" :color="r.color" :photo="r.photo" :size="32" />
             <span class="grow list-title truncate" @click="toggle(r)">{{ r.name }}</span>
 
             <template v-if="r.selected">

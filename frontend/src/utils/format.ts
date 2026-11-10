@@ -34,6 +34,19 @@ export const parseAmountToCents = (value: string): number => {
 
 export const centsToInput = (cents: number): string => (cents / 100).toFixed(2).replace('.', ',');
 
+/** Répartit un montant selon des poids (plus fort reste), comme le serveur. */
+export function splitCents(total: number, weights: number[]): number[] {
+  const sum = weights.reduce((a, b) => a + b, 0);
+  if (!weights.length || sum <= 0 || total <= 0) return weights.map(() => 0);
+  const floors = weights.map((w) => Math.floor((total * w) / sum));
+  let left = total - floors.reduce((a, b) => a + b, 0);
+  const order = weights
+    .map((w, i) => ({ i, rest: (total * w) / sum - floors[i] }))
+    .sort((a, b) => b.rest - a.rest || a.i - b.i);
+  for (let k = 0; left > 0; k += 1, left -= 1) floors[order[k % order.length].i] += 1;
+  return floors;
+}
+
 /** Coefficients : 10 000 points de base = 100 %. */
 export const TOTAL_BP = 10_000;
 

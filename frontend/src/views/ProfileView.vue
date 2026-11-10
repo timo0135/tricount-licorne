@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { Check, LogOut } from 'lucide-vue-next';
+import { Check, LogOut, Trash2 } from 'lucide-vue-next';
+import { checkImage, prepareImage } from '@/utils/image';
+import ImagePickerButton from '@/components/ImagePickerButton.vue';
 import { useAuthStore } from '@/stores/auth';
 import { useGroupsStore } from '@/stores/groups';
 import { useToastStore } from '@/stores/toast';
@@ -22,6 +24,33 @@ const name = ref(auth.user?.name ?? '');
 const emoji = ref(auth.user?.emoji ?? '🦄');
 const color = ref((auth.user?.color ?? '#c9a7f5').toLowerCase());
 const saving = ref(false);
+const uploading = ref(false);
+
+async function uploadPhoto(file: File) {
+  const problem = checkImage(file);
+  if (problem) return toast.error(problem);
+  uploading.value = true;
+  try {
+    await auth.setAvatar(await prepareImage(file));
+    toast.success('Photo de profil mise à jour');
+  } catch (e) {
+    toast.error((e as Error).message);
+  } finally {
+    uploading.value = false;
+  }
+}
+
+async function removePhoto() {
+  uploading.value = true;
+  try {
+    await auth.removeAvatar();
+    toast.success('Photo retirée');
+  } catch (e) {
+    toast.error((e as Error).message);
+  } finally {
+    uploading.value = false;
+  }
+}
 
 async function save() {
   saving.value = true;
@@ -49,10 +78,26 @@ async function logout() {
     <AppHeader title="Profil" back />
 
     <section class="identity">
-      <UnicornAvatar :emoji="emoji" :color="color" :size="72" />
+      <UnicornAvatar :emoji="emoji" :color="color" :photo="auth.user?.avatarUrl" :size="72" />
       <div class="grow">
         <h2 class="truncate">{{ name || 'Sans nom' }}</h2>
         <p class="muted truncate">{{ auth.user?.email }}</p>
+        <div class="photo-actions">
+          <ImagePickerButton
+            :label="auth.user?.avatarUrl ? 'Changer la photo' : 'Ajouter une photo'"
+            :busy="uploading"
+            @select="uploadPhoto"
+          />
+          <button
+            v-if="auth.user?.avatarUrl"
+            class="btn btn-sm btn-ghost"
+            :disabled="uploading"
+            aria-label="Retirer la photo"
+            @click="removePhoto"
+          >
+            <Trash2 :size="16" :stroke-width="1.75" />
+          </button>
+        </div>
       </div>
     </section>
 
@@ -63,7 +108,9 @@ async function logout() {
       </div>
 
       <div class="field">
-        <span class="label" id="avatar-label">Avatar</span>
+        <span class="label" id="avatar-label">
+          Avatar <span v-if="auth.user?.avatarUrl" class="faint">(affiché sans photo)</span>
+        </span>
         <div class="emojis" role="radiogroup" aria-labelledby="avatar-label">
           <button
             v-for="e in EMOJIS"
@@ -118,6 +165,12 @@ async function logout() {
   align-items: center;
   gap: 1rem;
   margin-bottom: 1.5rem;
+}
+
+.photo-actions {
+  display: flex;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
 }
 
 .emojis {

@@ -27,6 +27,24 @@ const router = createRouter({
       props: true,
     },
     {
+      path: '/groups/:id/settings',
+      name: 'group-settings',
+      component: () => import('@/views/GroupSettingsView.vue'),
+      props: true,
+    },
+    {
+      path: '/groups/:id/families/new',
+      name: 'family-new',
+      component: () => import('@/views/FamilyFormView.vue'),
+      props: true,
+    },
+    {
+      path: '/groups/:id/families/:familyId',
+      name: 'family-edit',
+      component: () => import('@/views/FamilyFormView.vue'),
+      props: true,
+    },
+    {
       path: '/groups/:id/expenses/new',
       name: 'expense-new',
       component: () => import('@/views/ExpenseFormView.vue'),

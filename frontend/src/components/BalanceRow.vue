@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { Balance } from '@/api/types';
+import type { PartyBalance } from '@/api/types';
 import { formatMoney } from '@/utils/format';
-import UnicornAvatar from './UnicornAvatar.vue';
+import PartyAvatar from './PartyAvatar.vue';
 
-const props = defineProps<{ balance: Balance; currency: string; max: number; isMe: boolean }>();
+const props = defineProps<{ balance: PartyBalance; currency: string; max: number; isMe: boolean }>();
 
 const cents = computed(() => props.balance.balanceCents);
 const width = computed(() =>
@@ -13,14 +13,21 @@ const width = computed(() =>
 const status = computed(() =>
   cents.value > 0 ? 'à recevoir' : cents.value < 0 ? 'à rembourser' : 'à jour',
 );
+const isFamily = computed(() => props.balance.kind === 'family');
+const title = computed(() =>
+  props.isMe && !isFamily.value ? 'Toi' : props.balance.name,
+);
+const memberNames = computed(() => props.balance.members.map((m) => m.name).join(', '));
 </script>
 
 <template>
   <div class="list-row">
-    <UnicornAvatar :emoji="balance.user?.emoji" :color="balance.user?.color" :size="36" />
+    <PartyAvatar :members="balance.members" :family="isFamily" :size="36" />
     <div class="grow">
       <div class="between">
-        <p class="list-title truncate">{{ isMe ? 'Toi' : (balance.user?.name ?? 'Membre') }}</p>
+        <p class="list-title truncate">
+          {{ title }}<span v-if="isMe && isFamily" class="faint"> (ta famille)</span>
+        </p>
         <p
           class="amount num"
           :class="{ positive: cents > 0, negative: cents < 0 }"
@@ -29,6 +36,7 @@ const status = computed(() =>
           {{ cents > 0 ? '+' : cents < 0 ? '−' : '' }}{{ formatMoney(Math.abs(cents), currency) }}
         </p>
       </div>
+      <p v-if="isFamily" class="list-sub truncate">{{ memberNames }}</p>
       <div class="between">
         <p class="list-sub num truncate">
           a payé {{ formatMoney(balance.paidCents, currency) }} · part

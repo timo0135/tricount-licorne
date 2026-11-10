@@ -39,11 +39,22 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
+            // Photos envoyées : noms uniques et immuables, donc cache d'abord.
+            urlPattern: ({ url }) => url.pathname.startsWith('/api/uploads/'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'lt-images',
+              expiration: { maxEntries: 150, maxAgeSeconds: 30 * 24 * 3600 },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
+          {
             // Lectures : réseau d'abord, dernière réponse en secours hors ligne.
             urlPattern: ({ url, request }) =>
               request.method === 'GET' &&
               url.pathname.startsWith('/api/') &&
               !url.pathname.startsWith('/api/auth/') &&
+              !url.pathname.startsWith('/api/uploads/') &&
               !url.pathname.startsWith('/api/health'),
             handler: 'NetworkFirst',
             options: {
