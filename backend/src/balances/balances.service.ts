@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { BalanceInput, computeBalances, simplifyDebts } from './balance.util';
 
@@ -59,7 +59,7 @@ export class BalancesService {
     const membership = await this.prisma.membership.findUnique({
       where: { userId_groupId: { userId, groupId } },
     });
-    if (!membership) throw new ForbiddenException('Tu ne fais pas partie de ce troupeau');
+    if (!membership) throw new NotFoundException('Troupeau introuvable.');
 
     const { totalCents, balances } = await this.summary(groupId);
 

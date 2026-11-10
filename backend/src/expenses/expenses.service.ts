@@ -198,7 +198,7 @@ export class ExpensesService {
 
     const unique = new Set(participants.map((p) => p.userId));
     if (unique.size !== participants.length) {
-      throw new BadRequestException('Une licorne ne peut apparaître qu\'une fois dans la répartition');
+      throw new BadRequestException('Une personne ne peut apparaître qu\'une fois dans la répartition.');
     }
     this.assertInGroup(memberIds, [...unique], 'Chaque participant');
 

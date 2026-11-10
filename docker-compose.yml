@@ -25,11 +25,15 @@ services:
       db:
         condition: service_healthy
     environment:
+      NODE_ENV: development
       DATABASE_URL: postgresql://licorne:licorne@db:5432/licorne_tricount?schema=public
-      JWT_SECRET: change-moi-en-production-petite-licorne
-      JWT_EXPIRES_IN: 7d
+      JWT_SECRET: dev-uniquement-a-remplacer
+      JWT_EXPIRES_IN: 15m
+      REFRESH_TOKEN_DAYS: 30
       PORT: 3000
       CORS_ORIGIN: http://localhost:8080,http://localhost:5173
+      COOKIE_SECURE: 'false'
+      TRUST_PROXY: 1
     ports:
       - '3000:3000'
 
@@ -38,7 +42,8 @@ services:
     container_name: licorne-web
     restart: unless-stopped
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     ports:
       - '8080:80'
 

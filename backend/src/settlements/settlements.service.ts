@@ -28,7 +28,7 @@ export class SettlementsService {
     await this.groups.assertMember(userId, groupId);
 
     if (dto.fromUserId === dto.toUserId) {
-      throw new BadRequestException('Une licorne ne peut pas se rembourser elle-même');
+      throw new BadRequestException('Une personne ne peut pas se rembourser elle-même.');
     }
     await Promise.all([
       this.groups.assertMember(dto.fromUserId, groupId),
@@ -56,7 +56,7 @@ export class SettlementsService {
     const settlement = await this.prisma.settlement.findFirst({
       where: { id: settlementId, groupId },
     });
-    if (!settlement) throw new NotFoundException('Remboursement introuvable');
+    if (!settlement) throw new NotFoundException('Remboursement introuvable.');
 
     await this.prisma.settlement.delete({ where: { id: settlementId } });
     return { deleted: true };

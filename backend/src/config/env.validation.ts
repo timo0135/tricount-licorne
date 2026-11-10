@@ -1,0 +1,74 @@
+/**
+ * Validation des variables d'environnement au démarrage.
+ * L'API refuse de démarrer avec une configuration dangereuse.
+ */
+const WEAK_SECRETS = ['change-moi', 'changeme', 'secret', 'licorne'];
+
+export interface AppEnv {
+  NODE_ENV: 'development' | 'production' | 'test';
+  DATABASE_URL: string;
+  JWT_SECRET: string;
+  JWT_EXPIRES_IN: string;
+  REFRESH_TOKEN_DAYS: number;
+  PORT: number;
+  CORS_ORIGIN: string;
+  COOKIE_SECURE: boolean;
+  TRUST_PROXY: number;
+}
+
+export function validateEnv(raw: Record<string, unknown>): AppEnv {
+  const errors: string[] = [];
+  const str = (key: string, fallback?: string) => {
+    const value = raw[key];
+    return value === undefined || value === '' ? fallback : String(value);
+  };
+  const int = (key: string, fallback: number) => {
+    const value = str(key);
+    if (value === undefined) return fallback;
+    const parsed = Number.parseInt(value, 10);
+    if (Number.isNaN(parsed)) errors.push(`${key} doit être un nombre entier`);
+    return parsed;
+  };
+
+  const nodeEnv = (str('NODE_ENV', 'development') as AppEnv['NODE_ENV']) ?? 'development';
+  if (!['development', 'production', 'test'].includes(nodeEnv)) {
+    errors.push('NODE_ENV doit valoir development, production ou test');
+  }
+  const isProd = nodeEnv === 'production';
+
+  const databaseUrl = str('DATABASE_URL');
+  if (!databaseUrl) errors.push('DATABASE_URL est obligatoire');
+
+  const secret = str('JWT_SECRET') ?? '';
+  if (!secret) {
+    errors.push('JWT_SECRET est obligatoire');
+  } else if (isProd) {
+    const weak = WEAK_SECRETS.some((w) => secret.toLowerCase().includes(w));
+    if (secret.length < 32 || weak) {
+      errors.push(
+        'JWT_SECRET doit faire au moins 32 caractères aléatoires en production (ex. : openssl rand -base64 48)',
+      );
+    }
+  }
+
+  const env: AppEnv = {
+    NODE_ENV: nodeEnv,
+    DATABASE_URL: databaseUrl ?? '',
+    JWT_SECRET: secret,
+    JWT_EXPIRES_IN: str('JWT_EXPIRES_IN', '15m')!,
+    REFRESH_TOKEN_DAYS: int('REFRESH_TOKEN_DAYS', 30),
+    PORT: int('PORT', 3000),
+    CORS_ORIGIN: str('CORS_ORIGIN', 'http://localhost:5173')!,
+    COOKIE_SECURE: (str('COOKIE_SECURE') ?? String(isProd)) === 'true',
+    TRUST_PROXY: int('TRUST_PROXY', 1),
+  };
+
+  if (env.REFRESH_TOKEN_DAYS < 1 || env.REFRESH_TOKEN_DAYS > 365) {
+    errors.push('REFRESH_TOKEN_DAYS doit être compris entre 1 et 365');
+  }
+
+  if (errors.length) {
+    throw new Error(`Configuration invalide :\n  - ${errors.join('\n  - ')}`);
+  }
+  return env;
+}

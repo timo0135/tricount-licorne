@@ -1,16 +1,21 @@
 import { Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
+import type { AppEnv } from '../config/env.validation';
 
 @Module({
   imports: [
     PassportModule,
-    JwtModule.register({
-      secret: process.env.JWT_SECRET ?? 'change-moi-en-production-petite-licorne',
-      signOptions: { expiresIn: process.env.JWT_EXPIRES_IN ?? '7d' },
+    JwtModule.registerAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService<AppEnv, true>) => ({
+        secret: config.get('JWT_SECRET', { infer: true }),
+        signOptions: { expiresIn: config.get('JWT_EXPIRES_IN', { infer: true }) },
+      }),
     }),
   ],
   controllers: [AuthController],

@@ -33,7 +33,8 @@ export class GroupsService {
       where: { userId_groupId: { userId, groupId } },
     });
     if (!membership) {
-      throw new ForbiddenException("Tu ne fais pas partie de ce troupeau");
+      // 404 plutôt que 403 : on ne révèle pas l'existence d'un troupeau.
+      throw new NotFoundException('Troupeau introuvable.');
     }
     return membership;
   }
@@ -41,7 +42,7 @@ export class GroupsService {
   private async assertOwner(userId: string, groupId: string) {
     const membership = await this.assertMember(userId, groupId);
     if (membership.role !== 'OWNER') {
-      throw new ForbiddenException('Seule la licorne créatrice peut faire ça');
+      throw new ForbiddenException('Action réservée au créateur du troupeau.');
     }
     return membership;
   }
@@ -99,7 +100,7 @@ export class GroupsService {
         _count: { select: { expenses: true } },
       },
     });
-    if (!group) throw new NotFoundException('Troupeau introuvable');
+    if (!group) throw new NotFoundException('Troupeau introuvable.');
 
     const summary = await this.balances.summary(groupId);
     const mine = summary.balances.find((b) => b.userId === userId);
@@ -133,7 +134,7 @@ export class GroupsService {
     const group = await this.prisma.group.findUnique({
       where: { inviteCode: dto.inviteCode.trim().toUpperCase() },
     });
-    if (!group) throw new NotFoundException("Ce code d'invitation ne mène nulle part");
+    if (!group) throw new NotFoundException("Aucun troupeau ne correspond à ce code d'invitation.");
 
     const existing = await this.prisma.membership.findUnique({
       where: { userId_groupId: { userId, groupId: group.id } },
@@ -158,7 +159,7 @@ export class GroupsService {
   async removeMember(actorId: string, groupId: string, memberUserId: string) {
     const actor = await this.assertMember(actorId, groupId);
     if (actorId !== memberUserId && actor.role !== 'OWNER') {
-      throw new ForbiddenException('Seule la licorne créatrice peut retirer un membre');
+      throw new ForbiddenException('Seul le créateur du troupeau peut retirer un membre.');
     }
 
     const involved = await this.prisma.expense.count({
@@ -176,7 +177,7 @@ export class GroupsService {
     const membership = await this.prisma.membership.findUnique({
       where: { userId_groupId: { userId: memberUserId, groupId } },
     });
-    if (!membership) throw new NotFoundException('Cette licorne n\'est pas dans le troupeau');
+    if (!membership) throw new NotFoundException('Cette personne ne fait pas partie du troupeau.');
 
     if (membership.role === 'OWNER') {
       const owners = await this.prisma.membership.count({ where: { groupId, role: 'OWNER' } });

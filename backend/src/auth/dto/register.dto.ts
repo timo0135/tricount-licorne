@@ -14,7 +14,7 @@ export class RegisterDto {
 
   @ApiProperty({ example: 'motdepasse123' })
   @IsString()
-  @MinLength(8, { message: 'Le mot de passe doit faire au moins 8 caractères' })
+  @MinLength(10, { message: 'Le mot de passe doit faire au moins 10 caractères.' })
   @MaxLength(72)
   password: string;
 }

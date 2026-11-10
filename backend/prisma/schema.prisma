@@ -1,4 +1,4 @@
-// Schéma Prisma — Licorne Tricount 🦄
+// Schéma Prisma — Licorne Tricount
 // Tous les montants sont stockés en centimes (Int) pour éviter les erreurs d'arrondi.
 
 generator client {
@@ -40,6 +40,7 @@ model User {
   settlementsFrom Settlement[]    @relation("SettlementFrom")
   settlementsTo   Settlement[]    @relation("SettlementTo")
   coefficients    CategoryShare[]
+  refreshTokens   RefreshToken[]
 
   @@map("users")
 }
@@ -154,4 +155,21 @@ model Settlement {
 
   @@index([groupId])
   @@map("settlements")
+}
+
+/// Jeton de rafraîchissement d'une session (cookie HttpOnly). Seul son empreinte
+/// SHA-256 est stockée ; il change à chaque utilisation (rotation).
+model RefreshToken {
+  id        String    @id @default(uuid())
+  tokenHash String    @unique
+  userAgent String?
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  revokedAt DateTime?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
 }

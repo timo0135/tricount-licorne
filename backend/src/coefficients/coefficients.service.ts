@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CATEGORIES } from '../common/categories';
 import { splitByWeights } from '../common/split';
@@ -20,7 +20,7 @@ export class CoefficientsService {
     const membership = await this.prisma.membership.findUnique({
       where: { userId_groupId: { userId, groupId } },
     });
-    if (!membership) throw new ForbiddenException('Tu ne fais pas partie de ce troupeau');
+    if (!membership) throw new NotFoundException('Troupeau introuvable.');
     return membership;
   }
 
@@ -139,16 +139,16 @@ export class CoefficientsService {
 
       const unknown = entry.shares.find((s) => !memberIds.has(s.userId));
       if (unknown) {
-        throw new BadRequestException('Une licorne de la répartition ne fait pas partie du troupeau');
+        throw new BadRequestException('Une personne de la répartition ne fait pas partie du troupeau.');
       }
 
       const seen = new Set(entry.shares.map((s) => s.userId));
       if (seen.size !== entry.shares.length) {
-        throw new BadRequestException('Une licorne apparaît deux fois dans la même catégorie');
+        throw new BadRequestException('Une personne apparaît deux fois dans la même catégorie.');
       }
       if (seen.size !== memberIds.size) {
         throw new BadRequestException(
-          'Chaque licorne du troupeau doit avoir un coefficient (0 % est autorisé)',
+          'Chaque membre du troupeau doit avoir un coefficient (0 % est autorisé).',
         );
       }
 
