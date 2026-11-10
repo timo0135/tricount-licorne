@@ -1,0 +1,485 @@
+/* =========================================================
+   Licorne Tricount — design system 🦄
+   Mobile-first, pastel, dégradés doux et coins bien arrondis.
+   ========================================================= */
+
+:root {
+  /* Couleurs pastel */
+  --rose: #ff9ecf;
+  --rose-soft: #ffd9ec;
+  --lilas: #b98cf5;
+  --lilas-soft: #e6d8ff;
+  --menthe: #7fe3cd;
+  --menthe-soft: #d5f7ef;
+  --ciel: #8fc4ff;
+  --ciel-soft: #dbecff;
+  --peche: #ffc48f;
+  --peche-soft: #ffe8d3;
+
+  /* Texte */
+  --ink: #46345f;
+  --ink-soft: #7d6b96;
+  --ink-faint: #a99bbd;
+
+  /* Surfaces */
+  --bg: #fbf6ff;
+  --card: rgba(255, 255, 255, 0.78);
+  --card-solid: #ffffff;
+  --border: rgba(185, 140, 245, 0.16);
+
+  /* Sémantique */
+  --positif: #2bb392;
+  --positif-bg: #ddf7ef;
+  --negatif: #f2668b;
+  --negatif-bg: #ffe2ea;
+
+  /* Effets */
+  --shadow-sm: 0 4px 14px rgba(150, 110, 200, 0.1);
+  --shadow: 0 10px 30px rgba(150, 110, 200, 0.14);
+  --shadow-lg: 0 18px 44px rgba(150, 110, 200, 0.22);
+  --glow: 0 8px 24px rgba(255, 158, 207, 0.45);
+
+  --radius-sm: 14px;
+  --radius: 20px;
+  --radius-lg: 28px;
+  --radius-full: 999px;
+
+  --gradient-main: linear-gradient(135deg, #ff9ecf 0%, #b98cf5 100%);
+  --gradient-aurora: linear-gradient(135deg, #ffc2e4 0%, #c6a9ff 55%, #a9d8ff 100%);
+  --gradient-candy: linear-gradient(135deg, #ffb3d1 0%, #ffd9a0 100%);
+  --gradient-lagoon: linear-gradient(135deg, #9ee7dd 0%, #8fc4ff 100%);
+  --gradient-sunset: linear-gradient(135deg, #ffb08f 0%, #ff8fb7 60%, #c98ff5 100%);
+  --gradient-meadow: linear-gradient(135deg, #b8f0c8 0%, #8fe0d8 55%, #a9c8ff 100%);
+  --gradient-cosmos: linear-gradient(135deg, #c3a2ff 0%, #8fa9ff 55%, #f5a2e0 100%);
+
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: 'Quicksand', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+}
+
+/* Halos pastel en fond, façon ciel de licorne */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(38rem 24rem at 12% -8%, rgba(255, 158, 207, 0.34), transparent 65%),
+    radial-gradient(32rem 24rem at 92% 4%, rgba(143, 196, 255, 0.32), transparent 62%),
+    radial-gradient(34rem 26rem at 50% 108%, rgba(127, 227, 205, 0.28), transparent 66%);
+  pointer-events: none;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+h1 {
+  font-size: 1.6rem;
+}
+h2 {
+  font-size: 1.15rem;
+}
+
+p {
+  margin: 0;
+  line-height: 1.55;
+}
+
+a {
+  color: var(--lilas);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+button {
+  font-family: inherit;
+}
+
+/* ---------- Layout ---------- */
+
+#app {
+  max-width: 520px;
+  margin: 0 auto;
+  min-height: 100vh;
+  min-height: 100dvh;
+  position: relative;
+}
+
+.page {
+  padding: calc(1rem + var(--safe-top)) 1.1rem calc(6.5rem + var(--safe-bottom));
+  animation: page-in 0.32s ease;
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+}
+
+.muted {
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+}
+
+.faint {
+  color: var(--ink-faint);
+  font-size: 0.78rem;
+}
+
+.center {
+  text-align: center;
+}
+
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- Cartes ---------- */
+
+.card {
+  background: var(--card);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  padding: 1.05rem;
+}
+
+.card-tight {
+  padding: 0.85rem 0.95rem;
+}
+
+.card-press {
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  cursor: pointer;
+}
+
+.card-press:active {
+  transform: scale(0.985);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ---------- Boutons ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: none;
+  border-radius: var(--radius-full);
+  padding: 0.85rem 1.4rem;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--gradient-main);
+  box-shadow: var(--glow);
+  cursor: pointer;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.btn-block {
+  width: 100%;
+}
+
+.btn-ghost {
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--lilas);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-soft {
+  background: var(--lilas-soft);
+  color: #6d47b8;
+  box-shadow: none;
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #ff9aa9, #f2668b);
+  box-shadow: 0 8px 20px rgba(242, 102, 139, 0.35);
+}
+
+.btn-sm {
+  padding: 0.55rem 1rem;
+  font-size: 0.85rem;
+}
+
+.icon-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  font-size: 1.1rem;
+  color: var(--ink);
+  cursor: pointer;
+  transition: transform 0.16s ease;
+}
+
+.icon-btn:active {
+  transform: scale(0.92);
+}
+
+/* ---------- Formulaires ---------- */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  padding-left: 0.6rem;
+}
+
+.input,
+.select,
+.textarea {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  font-size: 1rem;
+  font-family: inherit;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.9);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  outline: none;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 84px;
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+  border-color: var(--lilas);
+  box-shadow: 0 0 0 4px rgba(185, 140, 245, 0.16);
+}
+
+.input::placeholder {
+  color: var(--ink-faint);
+}
+
+.select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--ink-soft) 50%),
+    linear-gradient(135deg, var(--ink-soft) 50%, transparent 50%);
+  background-position: calc(100% - 20px) 50%, calc(100% - 15px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+/* Champ montant, en grand */
+.amount-input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 2.6rem;
+  font-weight: 700;
+  text-align: center;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+
+.amount-input::placeholder {
+  color: var(--ink-faint);
+}
+
+/* ---------- Divers ---------- */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid var(--border);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: all 0.16s ease;
+  white-space: nowrap;
+}
+
+.chip.active {
+  background: var(--gradient-main);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: var(--glow);
+}
+
+.scroller {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding: 0.15rem 0.15rem 0.4rem;
+  scrollbar-width: none;
+}
+
+.scroller::-webkit-scrollbar {
+  display: none;
+}
+
+.positive {
+  color: var(--positif);
+}
+
+.negative {
+  color: var(--negatif);
+}
+
+.pill {
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--radius-full);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.pill-positive {
+  background: var(--positif-bg);
+  color: var(--positif);
+}
+
+.pill-negative {
+  background: var(--negatif-bg);
+  color: var(--negatif);
+}
+
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0.6rem 0;
+}
+
+.error-box {
+  background: var(--negatif-bg);
+  color: #c2456b;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.sparkle {
+  animation: sparkle 2.4s ease-in-out infinite;
+  display: inline-block;
+}
+
+@keyframes sparkle {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.12) rotate(6deg);
+    opacity: 0.85;
+  }
+}
+
+.float {
+  animation: float 4s ease-in-out infinite;
+  display: inline-block;
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

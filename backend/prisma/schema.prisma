@@ -1,0 +1,157 @@
+// Schéma Prisma — Licorne Tricount 🦄
+// Tous les montants sont stockés en centimes (Int) pour éviter les erreurs d'arrondi.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  MEMBER
+}
+
+enum SplitMode {
+  AUTO // réparti selon les coefficients du troupeau pour la catégorie de la dépense
+  EQUAL // parts égales entre les participants
+  SHARES // pondéré par des parts (2 parts pour Sophie, 1 pour Léo...)
+  EXACT // montants exacts saisis à la main
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  // Identité licorne : un emoji + une couleur pastel générés à l'inscription
+  emoji     String   @default("🦄")
+  color     String   @default("#C9A7F5")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships     Membership[]
+  expensesPaid    Expense[]       @relation("ExpensePaidBy")
+  expensesCreated Expense[]       @relation("ExpenseCreatedBy")
+  shares          ExpenseShare[]
+  settlementsFrom Settlement[]    @relation("SettlementFrom")
+  settlementsTo   Settlement[]    @relation("SettlementTo")
+  coefficients    CategoryShare[]
+
+  @@map("users")
+}
+
+model Group {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  currency    String   @default("EUR")
+  emoji       String   @default("🦄")
+  // Dégradé pastel utilisé pour la carte du groupe dans le front
+  gradient    String   @default("aurora")
+  inviteCode  String   @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members      Membership[]
+  expenses     Expense[]
+  settlements  Settlement[]
+  coefficients CategoryShare[]
+
+  @@map("groups")
+}
+
+/// Coefficient d'une licorne pour une catégorie de dépense, en points de base
+/// (10 000 = 100 %). La somme des coefficients d'une catégorie vaut toujours 10 000.
+/// C'est cette matrice qui répartit automatiquement chaque dépense en mode AUTO.
+model CategoryShare {
+  id        String   @id @default(uuid())
+  category  String
+  shareBp   Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  groupId String
+  group   Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId, category])
+  @@index([groupId, category])
+  @@map("category_shares")
+}
+
+model Membership {
+  id       String   @id @default(uuid())
+  role     Role     @default(MEMBER)
+  joinedAt DateTime @default(now())
+
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  groupId String
+  group   Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, groupId])
+  @@index([groupId])
+  @@map("memberships")
+}
+
+model Expense {
+  id          String    @id @default(uuid())
+  title       String
+  amountCents Int
+  date        DateTime  @default(now())
+  category    String    @default("autre")
+  note        String?
+  splitMode   SplitMode @default(AUTO)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  groupId     String
+  group       Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  paidById    String
+  paidBy      User   @relation("ExpensePaidBy", fields: [paidById], references: [id])
+  createdById String
+  createdBy   User   @relation("ExpenseCreatedBy", fields: [createdById], references: [id])
+
+  shares ExpenseShare[]
+
+  @@index([groupId, date])
+  @@map("expenses")
+}
+
+model ExpenseShare {
+  id          String @id @default(uuid())
+  // Poids utilisé pour les modes EQUAL (1) et SHARES (n parts)
+  weight      Int    @default(1)
+  // Montant effectivement dû par cet utilisateur, en centimes
+  amountCents Int
+
+  expenseId String
+  expense   Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([expenseId, userId])
+  @@map("expense_shares")
+}
+
+model Settlement {
+  id          String   @id @default(uuid())
+  amountCents Int
+  date        DateTime @default(now())
+  note        String?
+  createdAt   DateTime @default(now())
+
+  groupId    String
+  group      Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  fromUserId String
+  fromUser   User   @relation("SettlementFrom", fields: [fromUserId], references: [id])
+  toUserId   String
+  toUser     User   @relation("SettlementTo", fields: [toUserId], references: [id])
+
+  @@index([groupId])
+  @@map("settlements")
+}
