@@ -161,6 +161,12 @@ export class AuthService {
     return this.issue(toPublicUser(stored.user), meta);
   }
 
+  /** Ouvre une session pour un utilisateur déjà authentifié autrement (passkey). */
+  async sessionFor(userId: string, meta: SessionMeta = {}): Promise<IssuedSession> {
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: PUBLIC_USER });
+    return this.issue(toPublicUser(user), meta);
+  }
+
   async logout(rawToken: string | undefined) {
     if (!rawToken) return;
     await this.prisma.refreshToken.updateMany({

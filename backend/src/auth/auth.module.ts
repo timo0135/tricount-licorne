@@ -6,6 +6,9 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 import { TwoFactorService } from './two-factor.service';
+import { PasskeysService } from './passkeys/passkeys.service';
+import { PasskeysController } from './passkeys/passkeys.controller';
+import { ChallengeStore } from './passkeys/challenge.store';
 import type { AppEnv } from '../config/env.validation';
 
 @Module({
@@ -19,8 +22,8 @@ import type { AppEnv } from '../config/env.validation';
       }),
     }),
   ],
-  controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, TwoFactorService],
+  controllers: [AuthController, PasskeysController],
+  providers: [AuthService, JwtStrategy, TwoFactorService, PasskeysService, ChallengeStore],
   exports: [AuthService],
 })
 export class AuthModule {}

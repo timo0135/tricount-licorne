@@ -22,6 +22,14 @@ describe('validateEnv', () => {
     ).toThrow(/32 caractères/);
   });
 
+  it('exige un domaine https pour les passkeys en production', () => {
+    const strong = { ...base, NODE_ENV: 'production', JWT_SECRET: 'x7Gq9'.repeat(8), ENCRYPTION_KEY: 'Kp2wZ'.repeat(8) };
+    expect(() => validateEnv(strong)).toThrow(/WEBAUTHN_RP_ID/);
+    expect(() =>
+      validateEnv({ ...strong, WEBAUTHN_RP_ID: 'tricount.exemple.fr', WEBAUTHN_ORIGINS: 'http://tricount.exemple.fr' }),
+    ).toThrow(/https/);
+  });
+
   it('exige une clé de chiffrement distincte en production', () => {
     const jwt = 'x7Gq9'.repeat(8);
     expect(() => validateEnv({ ...base, NODE_ENV: 'production', JWT_SECRET: jwt })).toThrow(/ENCRYPTION_KEY/);
@@ -36,6 +44,8 @@ describe('validateEnv', () => {
       NODE_ENV: 'production',
       JWT_SECRET: 'x7Gq9'.repeat(8),
       ENCRYPTION_KEY: 'Kp2wZ'.repeat(8),
+      WEBAUTHN_RP_ID: 'tricount.exemple.fr',
+      WEBAUTHN_ORIGINS: 'https://tricount.exemple.fr',
     });
     expect(env.COOKIE_SECURE).toBe(true);
   });

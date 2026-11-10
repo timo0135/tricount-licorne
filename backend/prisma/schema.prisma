@@ -52,6 +52,7 @@ model User {
   coefficients    CategoryShare[]
   refreshTokens   RefreshToken[]
   recoveryCodes   RecoveryCode[]
+  passkeys        Passkey[]
 
   @@map("users")
 }
@@ -222,4 +223,27 @@ model RecoveryCode {
 
   @@index([userId])
   @@map("recovery_codes")
+}
+
+/// Passkey (WebAuthn) : connexion avec Face ID, Touch ID ou le code de l'appareil.
+/// Seule la clé publique est stockée ; la clé privée ne quitte jamais l'appareil.
+model Passkey {
+  id           String    @id @default(uuid())
+  /// Identifiant de l'identifiant WebAuthn (base64url)
+  credentialId String    @unique
+  publicKey    Bytes
+  counter      Int       @default(0)
+  transports   String[]
+  /// « singleDevice » ou « multiDevice » (synchronisée, ex. trousseau iCloud)
+  deviceType   String
+  backedUp     Boolean   @default(false)
+  name         String
+  createdAt    DateTime  @default(now())
+  lastUsedAt   DateTime?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("passkeys")
 }

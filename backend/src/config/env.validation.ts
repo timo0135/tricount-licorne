@@ -16,6 +16,8 @@ export interface AppEnv {
   TRUST_PROXY: number;
   UPLOADS_DIR: string;
   ENCRYPTION_KEY: string;
+  WEBAUTHN_RP_ID: string;
+  WEBAUTHN_ORIGINS: string[];
 }
 
 export function validateEnv(raw: Record<string, unknown>): AppEnv {
@@ -77,7 +79,23 @@ export function validateEnv(raw: Record<string, unknown>): AppEnv {
     TRUST_PROXY: int('TRUST_PROXY', 1),
     UPLOADS_DIR: str('UPLOADS_DIR', `${process.cwd()}/uploads`)!,
     ENCRYPTION_KEY: encryptionKey,
+    // Passkeys : liées au nom de domaine exact (ex. tricount.timotheebenchergui.fr).
+    WEBAUTHN_RP_ID: str('WEBAUTHN_RP_ID', 'localhost')!,
+    WEBAUTHN_ORIGINS: str('WEBAUTHN_ORIGINS', 'http://localhost:8080,http://localhost:5173')!
+      .split(',')
+      .map((o) => o.trim())
+      .filter(Boolean),
   };
+
+  if (isProd && env.WEBAUTHN_RP_ID === 'localhost') {
+    errors.push('WEBAUTHN_RP_ID doit être le nom de domaine du site en production');
+  }
+  if (isProd && env.WEBAUTHN_ORIGINS.some((o) => !o.startsWith('https://'))) {
+    errors.push('WEBAUTHN_ORIGINS doit contenir des adresses https:// en production');
+  }
+  if (errors.length) {
+    throw new Error(`Configuration invalide :\n  - ${errors.join('\n  - ')}`);
+  }
 
   if (env.REFRESH_TOKEN_DAYS < 1 || env.REFRESH_TOKEN_DAYS > 365) {
     errors.push('REFRESH_TOKEN_DAYS doit être compris entre 1 et 365');
