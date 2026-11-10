@@ -79,7 +79,7 @@ export function validateEnv(raw: Record<string, unknown>): AppEnv {
     TRUST_PROXY: int('TRUST_PROXY', 1),
     UPLOADS_DIR: str('UPLOADS_DIR', `${process.cwd()}/uploads`)!,
     ENCRYPTION_KEY: encryptionKey,
-    // Passkeys : liées au nom de domaine exact (ex. tricount.timotheebenchergui.fr).
+    // Passkeys : liées au nom de domaine exact (ex. tricount-licorne.timotheebenchergui.fr).
     WEBAUTHN_RP_ID: str('WEBAUTHN_RP_ID', 'localhost')!,
     WEBAUTHN_ORIGINS: str('WEBAUTHN_ORIGINS', 'http://localhost:8080,http://localhost:5173')!
       .split(',')

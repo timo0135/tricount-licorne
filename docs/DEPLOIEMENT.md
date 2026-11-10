@@ -1,18 +1,18 @@
 # Mise en production
 
-Cible : `https://tricount.timotheebenchergui.fr`, sur le Mac mini, derrière Nginx Proxy Manager
+Cible : `https://tricount-licorne.timotheebenchergui.fr`, sur le Mac mini, derrière Nginx Proxy Manager
 (NPM), qui sert déjà le portfolio. Toutes les commandes se lancent **sur le Mac mini**.
 
 ## 1. Nom de domaine
 
-Chez le registraire de `timotheebenchergui.fr`, ajouter un enregistrement pour `tricount`
+Chez le registraire de `timotheebenchergui.fr`, ajouter un enregistrement pour `tricount-licorne`
 pointant au même endroit que le portfolio :
 
-- un `CNAME` `tricount` → `timotheebenchergui.fr.`, ou
-- un `A` `tricount` → l'adresse IP publique de la box.
+- un `CNAME` `tricount-licorne` → `timotheebenchergui.fr.`, ou
+- un `A` `tricount-licorne` → l’adresse IP publique de la box.
 
 Les ports 80 et 443 sont déjà redirigés vers le Mac mini pour le portfolio : rien à changer sur la box.
-Vérifier ensuite : `dig +short tricount.timotheebenchergui.fr`.
+Vérifier ensuite : `dig +short tricount-licorne.timotheebenchergui.fr`.
 
 ## 2. Récupérer le code
 
@@ -64,13 +64,13 @@ Dans l'interface de NPM : **Hosts → Proxy Hosts → Add Proxy Host**.
 
 | Onglet | Réglage |
 | --- | --- |
-| Details | Domain Names : `tricount.timotheebenchergui.fr` · Scheme : `http` · Forward Hostname : `licorne-tricount-web` · Forward Port : `80` · cocher *Block Common Exploits* |
+| Details | Domain Names : `tricount-licorne.timotheebenchergui.fr` · Scheme : `http` · Forward Hostname : `licorne-tricount-web` · Forward Port : `80` · cocher *Block Common Exploits* |
 | SSL | *Request a new SSL Certificate* · cocher *Force SSL*, *HTTP/2 Support*, *HSTS Enabled* · accepter les conditions Let's Encrypt |
 | Advanced | `client_max_body_size 10m;` (photos jusqu'à 8 Mo) |
 
 ## 7. Vérifier
 
-1. `https://tricount.timotheebenchergui.fr/api/health` → `{"status":"ok","database":"ok",…}`
+1. `https://tricount-licorne.timotheebenchergui.fr/api/health` → `{"status":"ok","database":"ok",…}`
 2. Créer son compte sur le site, puis un troupeau.
 3. Sur l'iPhone, dans Safari : Partager → Sur l'écran d'accueil.
 4. Profil → Sécurité → *Ajouter une passkey sur cet appareil* (Face ID).

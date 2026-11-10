@@ -90,7 +90,7 @@ Pour modifier le schéma : éditer `prisma/schema.prisma`, puis `npx prisma migr
 ## Installer l'application sur un téléphone
 
 L'installation exige une adresse **HTTPS** : elle sera possible une fois l'application déployée
-(par exemple sur `tricount.timotheebenchergui.fr`).
+(par exemple sur `tricount-licorne.timotheebenchergui.fr`).
 
 - **iPhone** (iOS 16.4 ou plus) : ouvrir le site dans Safari, toucher **Partager**, puis **Sur l'écran d'accueil**.
   L'application affiche ce mode d'emploi elle-même.
