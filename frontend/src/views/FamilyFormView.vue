@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import { useBackTo } from '@/utils/navigation';
 import { useRouter } from 'vue-router';
 import { Check, CircleAlert, Trash2 } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/auth';
@@ -18,6 +19,7 @@ const store = useGroupsStore();
 const toast = useToastStore();
 const confirm = useConfirmStore();
 const router = useRouter();
+const backTo = useBackTo();
 
 const group = computed(() => (store.current?.id === props.id ? store.current : null));
 const family = computed(() => group.value?.families.find((f) => f.id === props.familyId));
@@ -75,7 +77,7 @@ async function save() {
     if (isEdit.value) await store.updateFamily(props.id, props.familyId!, body);
     else await store.createFamily(props.id, body);
     toast.success(isEdit.value ? 'Famille enregistrée' : 'Famille créée');
-    router.replace(`/groups/${props.id}?tab=members`);
+    backTo(`/groups/${props.id}?tab=members`);
   } catch (e) {
     error.value = (e as Error).message;
   } finally {
@@ -95,7 +97,7 @@ async function dissolve() {
   try {
     await store.deleteFamily(props.id, props.familyId!);
     toast.success('Famille dissoute');
-    router.replace(`/groups/${props.id}?tab=members`);
+    backTo(`/groups/${props.id}?tab=members`);
   } catch (e) {
     toast.error((e as Error).message);
   }

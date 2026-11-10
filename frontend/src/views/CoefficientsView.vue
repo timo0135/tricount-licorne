@@ -171,7 +171,11 @@ async function applyToExisting() {
 
 <template>
   <main class="page page-medium">
-    <AppHeader title="Coefficients" subtitle="La part de chacun, par catégorie" back />
+    <AppHeader
+      title="Coefficients"
+      subtitle="La part de chacun, par catégorie"
+      :back="`/groups/${id}?tab=members`"
+    />
 
     <LoadingState v-if="!ready" />
 

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
+import { useBackTo } from '@/utils/navigation';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useGroupsStore } from '@/stores/groups';
@@ -32,6 +33,7 @@ const store = useGroupsStore();
 const toast = useToastStore();
 const confirm = useConfirmStore();
 const router = useRouter();
+const backTo = useBackTo();
 
 interface ParticipantRow {
   userId: string;
@@ -303,7 +305,7 @@ async function submit() {
       await store.addExpense(props.id, payload);
       toast.success('Dépense ajoutée');
     }
-    router.replace(`/groups/${props.id}`);
+    backTo(`/groups/${props.id}`);
   } catch (e) {
     error.value = (e as Error).message;
   } finally {
@@ -323,7 +325,7 @@ async function destroy() {
   try {
     await store.deleteExpense(props.id, props.expenseId);
     toast.success('Dépense supprimée');
-    router.replace(`/groups/${props.id}`);
+    backTo(`/groups/${props.id}`);
   } catch (e) {
     toast.error((e as Error).message);
   }
@@ -332,7 +334,7 @@ async function destroy() {
 
 <template>
   <main class="page">
-    <AppHeader :title="isEdit ? 'Modifier la dépense' : 'Nouvelle dépense'" back />
+    <AppHeader :title="isEdit ? 'Modifier la dépense' : 'Nouvelle dépense'" :back="`/groups/${id}`" />
 
     <LoadingState v-if="!group" />
 

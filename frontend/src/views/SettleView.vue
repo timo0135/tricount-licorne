@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import { useBackTo } from '@/utils/navigation';
 import { useRoute, useRouter } from 'vue-router';
 import { ArrowDownUp, CircleAlert } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/auth';
@@ -16,6 +17,7 @@ const auth = useAuthStore();
 const store = useGroupsStore();
 const toast = useToastStore();
 const router = useRouter();
+const backTo = useBackTo();
 const route = useRoute();
 
 const fromUserId = ref('');
@@ -81,7 +83,7 @@ async function submit() {
       note: note.value.trim() || undefined,
     });
     toast.success('Remboursement enregistré');
-    router.replace({ path: `/groups/${props.id}`, query: { tab: 'balances' } });
+    backTo(`/groups/${props.id}?tab=balances`);
   } catch (e) {
     error.value = (e as Error).message;
   } finally {
@@ -92,7 +94,7 @@ async function submit() {
 
 <template>
   <main class="page">
-    <AppHeader title="Remboursement" back />
+    <AppHeader title="Remboursement" :back="`/groups/${id}?tab=balances`" />
 
     <LoadingState v-if="!group" />
 

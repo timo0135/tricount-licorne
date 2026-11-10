@@ -75,7 +75,7 @@ async function logout() {
 
 <template>
   <main class="page">
-    <AppHeader title="Profil" back />
+    <AppHeader title="Profil" back="/" />
 
     <section class="identity">
       <UnicornAvatar :emoji="emoji" :color="color" :photo="auth.user?.avatarUrl" :size="72" />

@@ -36,7 +36,7 @@ async function submit() {
 
 <template>
   <main class="page">
-    <AppHeader title="Rejoindre un troupeau" back />
+    <AppHeader title="Rejoindre un troupeau" back="/" />
 
     <form class="stack" @submit.prevent="submit">
       <div class="intro">

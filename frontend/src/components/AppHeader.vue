@@ -1,15 +1,12 @@
 <script setup lang="ts">
-import { useRouter } from 'vue-router';
 import { ArrowLeft } from 'lucide-vue-next';
+import { useBackTo } from '@/utils/navigation';
 
+/** `back` : chemin de l'écran parent (ou `true` pour l'accueil). */
 const props = defineProps<{ title?: string; subtitle?: string; back?: boolean | string }>();
-const router = useRouter();
+const backTo = useBackTo();
 
-const goBack = () => {
-  if (typeof props.back === 'string') router.push(props.back);
-  else if (window.history.state?.back) router.back();
-  else router.push('/');
-};
+const goBack = () => backTo(typeof props.back === 'string' ? props.back : '/');
 </script>
 
 <template>

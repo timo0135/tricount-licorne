@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
+import { useBackTo } from '@/utils/navigation';
 import { useRouter } from 'vue-router';
 import { Check, CircleAlert, Trash2 } from 'lucide-vue-next';
 import { useGroupsStore } from '@/stores/groups';
@@ -17,6 +18,7 @@ const props = defineProps<{ id: string }>();
 const store = useGroupsStore();
 const toast = useToastStore();
 const router = useRouter();
+const backTo = useBackTo();
 
 const group = computed(() => (store.current?.id === props.id ? store.current : null));
 const name = ref('');
@@ -82,7 +84,7 @@ async function save() {
       gradient: tint.value,
     });
     toast.success('Troupeau enregistré');
-    router.back();
+    backTo(`/groups/${props.id}`);
   } catch (e) {
     error.value = (e as Error).message;
   } finally {
