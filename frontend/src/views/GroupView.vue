@@ -586,15 +586,16 @@ const settlePrefill = (r: Reimbursement) =>
     grid-column: 1;
   }
 
+  /* Chiffres clés à droite du titre, sans cadre : la carte suffit. */
   .overview {
     grid-column: 2;
     grid-row: 1 / span 3;
     align-self: end;
-    min-width: 340px;
+    gap: 1.5rem;
     margin-top: 0;
-    padding: 0.75rem 1rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
+    padding: 0;
+    border: none;
+    text-align: right;
   }
 
   .hero {
