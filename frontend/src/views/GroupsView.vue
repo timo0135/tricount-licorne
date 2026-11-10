@@ -37,13 +37,13 @@ const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? 's' : ''}`;
 </script>
 
 <template>
-  <main class="page">
+  <main class="page page-medium">
     <header class="top">
       <div class="grow">
         <p class="muted">Bonjour {{ auth.user?.name }}</p>
         <h1>Troupeaux</h1>
       </div>
-      <button class="avatar-btn" aria-label="Mon profil" @click="router.push('/profile')">
+      <button class="avatar-btn mobile-only" aria-label="Mon profil" @click="router.push('/profile')">
         <UnicornAvatar
           :emoji="auth.user?.emoji"
           :color="auth.user?.color"
@@ -115,7 +115,7 @@ const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? 's' : ''}`;
       text="Crée un troupeau pour ton groupe, ou rejoins-en un avec un code d'invitation."
     />
 
-    <nav class="bottom-bar">
+    <nav class="bottom-bar mobile-only">
       <button class="btn btn-secondary grow" @click="router.push('/groups/join')">
         <Link2 :size="18" :stroke-width="2" /> Rejoindre
       </button>

@@ -170,7 +170,7 @@ async function applyToExisting() {
 </script>
 
 <template>
-  <main class="page">
+  <main class="page page-medium">
     <AppHeader title="Coefficients" subtitle="La part de chacun, par catégorie" back />
 
     <LoadingState v-if="!ready" />

@@ -22,6 +22,13 @@ export const useGroupsStore = defineStore('groups', () => {
   const coefficients = ref<CoefficientMatrix | null>(null);
   const loading = ref(false);
 
+  /** Garde la liste (barre latérale, accueil) alignée sur la dernière version d'un troupeau. */
+  function syncListItem(group: Group) {
+    if (groups.value.some((g) => g.id === group.id)) {
+      groups.value = groups.value.map((g) => (g.id === group.id ? group : g));
+    }
+  }
+
   async function fetchGroups() {
     loading.value = true;
     try {
@@ -41,6 +48,7 @@ export const useGroupsStore = defineStore('groups', () => {
         settlementsApi.list(id),
       ]);
       current.value = group;
+      syncListItem(group);
       expenses.value = groupExpenses;
       balances.value = groupBalances;
       settlements.value = groupSettlements;
@@ -58,6 +66,7 @@ export const useGroupsStore = defineStore('groups', () => {
       settlementsApi.list(id),
     ]);
     current.value = group;
+    syncListItem(group);
     expenses.value = groupExpenses;
     balances.value = groupBalances;
     settlements.value = groupSettlements;

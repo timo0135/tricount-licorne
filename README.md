@@ -30,6 +30,8 @@ API **NestJS + Prisma + PostgreSQL**, front **Vue 3 + Vite + TypeScript**, le to
 - **PWA** : installation sur l'écran d'accueil, consultation hors ligne des dernières données,
   mise à jour proposée quand une nouvelle version est déployée.
 - **Thème clair et sombre** selon le réglage du téléphone.
+- **Format ordinateur** (à partir de 1 024 px) : barre latérale avec les troupeaux et le profil ;
+  dans un troupeau, les dépenses à gauche et les soldes ou les membres à droite.
 
 Tous les montants sont manipulés en **centimes entiers** ; la somme des parts est toujours égale au
 montant (méthode du plus fort reste). Les coefficients sont stockés en **points de base**

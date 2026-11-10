@@ -31,6 +31,7 @@ import ExpenseRow from '@/components/ExpenseRow.vue';
 import BalanceRow from '@/components/BalanceRow.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import LoadingState from '@/components/LoadingState.vue';
+import { useDesktop } from '@/utils/media';
 
 const props = defineProps<{ id: string }>();
 
@@ -50,6 +51,13 @@ const tabs: { key: Tab; label: string }[] = [
 const initialTab = route.query.tab as Tab | undefined;
 const tab = ref<Tab>(initialTab && tabs.some((t) => t.key === initialTab) ? initialTab : 'expenses');
 const inviteCode = ref('');
+const isDesktop = useDesktop();
+
+/** Sur ordinateur, les dépenses sont toujours visibles ; le panneau de droite alterne. */
+const sideTabs = tabs.filter((t) => t.key !== 'expenses');
+const sideTab = computed<Tab>(() =>
+  isDesktop.value && tab.value === 'expenses' ? 'balances' : tab.value,
+);
 
 const group = computed(() => store.current);
 const currency = computed(() => group.value?.currency ?? 'EUR');
@@ -211,7 +219,7 @@ const settlePrefill = (r: Reimbursement) =>
 </script>
 
 <template>
-  <main class="page">
+  <main class="page" :class="{ 'page-wide': isDesktop }">
     <AppHeader back="/">
       <template #action>
         <RouterLink
@@ -257,7 +265,7 @@ const settlePrefill = (r: Reimbursement) =>
         </div>
       </section>
 
-      <div class="segmented tabs" role="tablist">
+      <div class="segmented tabs mobile-only" role="tablist">
         <button
           v-for="t in tabs"
           :key="t.key"
@@ -271,7 +279,14 @@ const settlePrefill = (r: Reimbursement) =>
       </div>
 
       <!-- Dépenses -->
-      <section v-if="tab === 'expenses'" class="stack">
+      <div class="group-grid">
+      <section v-if="isDesktop || tab === 'expenses'" class="stack col-main">
+        <div class="section-head desktop-only">
+          <h2 class="column-title">Dépenses</h2>
+          <button class="btn btn-sm" @click="router.push(`/groups/${id}/expenses/new`)">
+            <Plus :size="16" :stroke-width="2.25" /> Ajouter une dépense
+          </button>
+        </div>
         <EmptyState
           v-if="!store.expenses.length"
           :icon="Receipt"
@@ -295,7 +310,26 @@ const settlePrefill = (r: Reimbursement) =>
       </section>
 
       <!-- Soldes -->
-      <section v-else-if="tab === 'balances'" class="stack">
+      <div v-if="isDesktop || tab !== 'expenses'" class="col-side stack">
+      <div class="segmented desktop-only" role="tablist" aria-label="Panneau latéral">
+        <button
+          v-for="t in sideTabs"
+          :key="t.key"
+          role="tab"
+          :aria-selected="sideTab === t.key"
+          :class="{ active: sideTab === t.key }"
+          @click="selectTab(t.key)"
+        >
+          {{ t.label }}
+        </button>
+      </div>
+      <section v-if="sideTab === 'balances'" class="stack">
+        <button
+          class="btn btn-secondary btn-block desktop-only"
+          @click="router.push(`/groups/${id}/settle`)"
+        >
+          <Plus :size="16" :stroke-width="2.25" /> Enregistrer un remboursement
+        </button>
         <div>
           <div class="section-head">
             <h2 class="section-title">Soldes</h2>
@@ -448,8 +482,10 @@ const settlePrefill = (r: Reimbursement) =>
           </button>
         </div>
       </section>
+      </div>
+      </div>
 
-      <nav v-if="tab !== 'members'" class="bottom-bar">
+      <nav v-if="!isDesktop && tab !== 'members'" class="bottom-bar">
         <button
           v-if="tab === 'expenses'"
           class="btn btn-block"
@@ -525,6 +561,56 @@ const settlePrefill = (r: Reimbursement) =>
 
 .tabs {
   margin-bottom: 1.25rem;
+}
+
+.column-title {
+  font-size: var(--fs-lg);
+}
+
+@media (min-width: 1024px) {
+  .hero :deep(.banner) {
+    aspect-ratio: auto;
+    height: 200px;
+  }
+
+  .hero-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 2rem;
+    padding: 0 1.5rem 1.25rem;
+  }
+
+  .hero-avatar,
+  .hero-title,
+  .hero-desc {
+    grid-column: 1;
+  }
+
+  .overview {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    align-self: end;
+    min-width: 340px;
+    margin-top: 0;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+
+  .hero {
+    margin-bottom: 1.75rem;
+  }
+
+  .group-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+    gap: 2rem;
+    align-items: start;
+  }
+
+    .col-main .section-head {
+    margin-bottom: 0.25rem;
+  }
 }
 
 .day::first-letter {
