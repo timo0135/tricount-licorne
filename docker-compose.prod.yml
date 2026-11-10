@@ -1,0 +1,64 @@
+# Production sur le Mac mini, derrière Nginx Proxy Manager (HTTPS).
+# Lancement :
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+name: licorne-tricount-prod
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: licorne
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manquant dans .env.production}
+      POSTGRES_DB: licorne_tricount
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U licorne -d licorne_tricount']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [internal]
+    # Aucun port publié : la base n'est joignable que par l'API.
+
+  api:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env.production
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://licorne:${POSTGRES_PASSWORD}@db:5432/licorne_tricount?schema=public
+      UPLOADS_DIR: /app/uploads
+      PORT: 3000
+    volumes:
+      - uploads:/app/uploads
+    networks: [internal]
+    logging:
+      driver: json-file
+      options: { max-size: '10m', max-file: '5' }
+
+  web:
+    build: ./frontend
+    container_name: licorne-tricount-web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    # Seul point d'entrée : Nginx Proxy Manager le joint par son réseau Docker.
+    networks: [internal, proxy]
+    logging:
+      driver: json-file
+      options: { max-size: '10m', max-file: '5' }
+
+volumes:
+  db-data:
+  uploads:
+
+networks:
+  internal: {}
+  proxy:
+    external: true
+    name: ${PROXY_NETWORK:?PROXY_NETWORK manquant dans .env.production}

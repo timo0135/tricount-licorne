@@ -8,3 +8,4 @@ dist/
 _backups/
 coverage/
 /backend/uploads/
+.env.production

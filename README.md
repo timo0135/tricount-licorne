@@ -209,6 +209,12 @@ Un solde positif signifie qu'on doit de l'argent au membre. La somme des soldes 
 toujours nulle. Les remboursements suggérés apparient le plus gros débiteur au plus gros créancier,
 soit au plus n − 1 virements pour n membres.
 
+## Mise en production
+
+Voir [`docs/DEPLOIEMENT.md`](docs/DEPLOIEMENT.md) : `docker-compose.prod.yml` derrière Nginx Proxy
+Manager, configuration dans `.env.production` (modèle `.env.production.example`), sauvegardes avec
+`scripts/backup.sh`.
+
 ## Publier sur GitHub
 
 Le dépôt Git est déjà initialisé. Après avoir créé un dépôt vide sur GitHub :
