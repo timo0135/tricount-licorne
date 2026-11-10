@@ -591,11 +591,21 @@ const settlePrefill = (r: Reimbursement) =>
     grid-column: 2;
     grid-row: 1 / span 3;
     align-self: end;
+    align-items: stretch;
     gap: 1.5rem;
     margin-top: 0;
     padding: 0;
     border: none;
-    text-align: right;
+  }
+
+  /* Libellés sur une ligne : les deux chiffres restent alignés */
+  .overview > div:not(.sep) {
+    flex: 0 0 auto;
+    min-width: 9rem;
+  }
+
+  .overview .muted {
+    white-space: nowrap;
   }
 
   .hero {
