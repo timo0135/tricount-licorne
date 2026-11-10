@@ -3,6 +3,7 @@ import { onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import ToastHost from '@/components/ToastHost.vue';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
+import PwaStatus from '@/components/PwaStatus.vue';
 import { setUnauthorizedHandler } from '@/api/client';
 import { useAuthStore } from '@/stores/auth';
 import { useGroupsStore } from '@/stores/groups';
@@ -13,7 +14,7 @@ const groups = useGroupsStore();
 
 onMounted(() => {
   setUnauthorizedHandler(() => {
-    auth.logout();
+    auth.clearLocal();
     groups.reset();
     router.push({ name: 'login' });
   });
@@ -21,6 +22,7 @@ onMounted(() => {
 </script>
 
 <template>
+  <PwaStatus />
   <ToastHost />
   <ConfirmDialog />
   <RouterView v-slot="{ Component }">

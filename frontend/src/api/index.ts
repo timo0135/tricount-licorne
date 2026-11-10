@@ -17,6 +17,7 @@ export const authApi = {
     api.post<AuthResponse>('/auth/register', body),
   login: (body: { email: string; password: string }) => api.post<AuthResponse>('/auth/login', body),
   me: () => api.get<User>('/auth/me'),
+  logout: () => api.post<void>('/auth/logout'),
   updateProfile: (body: { name?: string; emoji?: string; color?: string }) =>
     api.patch<User>('/users/me', body),
 };

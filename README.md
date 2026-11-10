@@ -1,197 +1,184 @@
-# 🦄 Licorne Tricount
+# Licorne Tricount
 
-Application web mobile de partage de dépenses entre amis, sur le thème des licornes.
-Backend **NestJS + Prisma + PostgreSQL**, frontend **Vue 3 + Vite + TypeScript**, le tout dockerisé.
+Application web de partage de dépenses en groupe, installable sur l'écran d'accueil d'un iPhone ou
+d'un Android (PWA). Chaque dépense est répartie automatiquement selon la part de chacun, catégorie
+par catégorie : le logement ne se partage pas forcément comme les courses.
 
-![Écrans de l'application](docs/screenshots/02-groupes.png)
+API **NestJS + Prisma + PostgreSQL**, front **Vue 3 + Vite + TypeScript**, le tout sous **Docker**.
 
-## ✨ Fonctionnalités
+<p>
+  <img src="docs/screenshots/02-troupeaux-light.png" width="240" alt="Liste des troupeaux">
+  <img src="docs/screenshots/03-depenses-light.png" width="240" alt="Dépenses d'un troupeau">
+  <img src="docs/screenshots/04-soldes-dark.png" width="240" alt="Soldes, thème sombre">
+</p>
 
-- **Comptes licornes** : inscription / connexion JWT, emoji et couleur pastel attribués au hasard, profil modifiable
-- **Troupeaux** (= groupes) : création, code d'invitation à partager, gestion des membres, suppression
-- **Coefficients par personne et par thème** : chaque licorne a un pourcentage de participation
-  pour chaque catégorie de dépense (ex : Sophie 40 % du logement mais 30 % de la nourriture,
-  Timothée 10 % de la nourriture parce qu'il mange dehors le midi). Un coefficient à 0 % exclut
-  la licorne de la catégorie.
-- **Dépenses** : montant, intitulé, catégorie, date, note, payeur. La répartition est
-  **automatique** — quelqu'un avance 50 €, et chacun se retrouve avec un solde négatif au prorata
-  de son coefficient pour ce thème. Rien à régler au moment de la saisie.
-- **Répartition personnalisable ponctuellement** si une dépense sort de l'ordinaire :
-  - parts égales
-  - par parts pondérées (2 parts pour l'un, 1 pour l'autre…)
-  - montants exacts saisis à la main
-- **Soldes** : qui a avancé combien, qui doit combien, avec barres de progression
-- **Remboursements** : suggestion du **nombre minimal de virements** pour tout remettre à zéro, et enregistrement des remboursements effectués
-- **Statistiques** par catégorie (endpoint prêt côté API)
+## Fonctionnalités
 
-Les coefficients sont stockés **en points de base** (10 000 = 100 %) et la somme d'une catégorie
-vaut toujours exactement 100 % : à l'arrivée d'une licorne, elle prend un coefficient égal à la
-moyenne des autres et tout le monde est renormalisé ; à son départ, sa part est redistribuée au
-prorata.
+- **Comptes** : inscription, connexion, session de 30 jours renouvelée automatiquement, profil (avatar licorne et couleur).
+- **Troupeaux** (groupes) : création, code d'invitation à partager, membres, rôles créateur et membre.
+- **Coefficients** : une matrice membre × catégorie en pourcentages (40 % du logement, 25 % des courses…).
+  Un coefficient de 0 % exclut la personne de la catégorie.
+- **Dépenses** : répartition automatique selon les coefficients, ou personnalisée pour une dépense
+  (parts égales, par parts, montants exacts). Dépenses groupées par jour.
+- **Soldes** et **remboursements suggérés** : le plus petit nombre de virements pour tout remettre à zéro.
+- **Remboursements enregistrés**, avec historique.
+- **PWA** : installation sur l'écran d'accueil, consultation hors ligne des dernières données,
+  mise à jour proposée quand une nouvelle version est déployée.
+- **Thème clair et sombre** selon le réglage du téléphone.
 
-Tous les montants sont manipulés **en centimes (entiers)** de bout en bout : aucun arrondi flottant, la somme des parts est toujours exactement égale au montant de la dépense (méthode du plus fort reste).
+Tous les montants sont manipulés en **centimes entiers** ; la somme des parts est toujours égale au
+montant (méthode du plus fort reste). Les coefficients sont stockés en **points de base**
+(10 000 = 100 %).
 
-## 🚀 Démarrage rapide (Docker)
+## Démarrage rapide (Docker)
 
 ```bash
 docker compose up --build
 ```
 
-- Front : http://localhost:8080
-- API : http://localhost:3000/api
-- Swagger : http://localhost:3000/api/docs
-- PostgreSQL : localhost:5432 (`licorne` / `licorne`)
+| Service | Adresse |
+| --- | --- |
+| Application | http://localhost:8080 |
+| API | http://localhost:3000/api |
+| Documentation de l'API (Swagger, hors production) | http://localhost:3000/api/docs |
+| Sonde de santé | http://localhost:3000/api/health |
+| PostgreSQL | localhost:5432 (`licorne` / `licorne`) |
 
-Le schéma de base est créé automatiquement au démarrage (`prisma db push`).
+Les migrations sont appliquées automatiquement au démarrage de l'API. Une base créée par une version
+précédente (avec `prisma db push`) est reconnue et raccrochée à l'historique des migrations.
 
-Pour insérer un jeu de données de démo :
+Données de démonstration :
 
 ```bash
 docker compose exec api npx ts-node prisma/seed.ts
 ```
 
-Comptes créés : `sophie@licorne.fr`, `leo@licorne.fr`, `maya@licorne.fr`, `timothee@licorne.fr` — mot de passe `licorne123`, code d'invitation du troupeau `BROCEL22`.
+Comptes : `sophie@licorne.fr`, `leo@licorne.fr`, `maya@licorne.fr`, `timothee@licorne.fr`,
+mot de passe `licorne123`, code d'invitation `BROCEL22`.
 
-Le jeu de démo contient déjà des coefficients personnalisés : Sophie paie 40 % du logement (grande
-chambre) et Timothée seulement 10 % de la nourriture.
+## Développement sans Docker
 
-## 🛠 Démarrage en local (sans Docker)
-
-Il faut un PostgreSQL qui tourne (ou juste `docker compose up db`).
-
-### Backend
+Il faut un PostgreSQL (par exemple `docker compose up db`).
 
 ```bash
+# API
 cd backend
-cp .env.example .env          # ajuste DATABASE_URL si besoin
+cp .env.example .env
 npm install
-npx prisma generate
-npx prisma migrate dev --name init   # crée les tables + la migration
-npx ts-node prisma/seed.ts           # (optionnel) données de démo
-npm run start:dev
-```
+npx prisma migrate deploy
+npm run start:dev          # http://localhost:3000/api
 
-L'API écoute sur http://localhost:3000/api.
-
-### Frontend
-
-```bash
+# Front
 cd frontend
 npm install
-npm run dev
+npm run dev                # http://localhost:5173, /api est redirigé vers l'API
 ```
 
-Le front écoute sur http://localhost:5173 et proxifie `/api` vers `http://localhost:3000`.
+Pour modifier le schéma : éditer `prisma/schema.prisma`, puis `npx prisma migrate dev --name <nom>`.
 
-### Tests
+## Installer l'application sur un téléphone
+
+L'installation exige une adresse **HTTPS** : elle sera possible une fois l'application déployée
+(par exemple sur `tricount.timotheebenchergui.fr`).
+
+- **iPhone** (iOS 16.4 ou plus) : ouvrir le site dans Safari, toucher **Partager**, puis **Sur l'écran d'accueil**.
+  L'application affiche ce mode d'emploi elle-même.
+- **Android** (Chrome) : toucher le bouton **Installer** proposé par l'application, ou le menu de Chrome.
+
+## Tests
 
 ```bash
 cd backend && npm test
 ```
 
-27 tests unitaires couvrent la répartition au centime près, la normalisation des coefficients
-(arrivée / départ d'un membre) et l'algorithme de simplification des dettes.
+37 tests unitaires : répartition au centime près, soldes et simplification des dettes,
+normalisation des coefficients, validation de la configuration, rotation des sessions.
 
-## 📁 Structure
+## Sécurité
+
+- Jeton d'accès de 15 minutes gardé en mémoire ; jeton de rafraîchissement de 30 jours en cookie
+  `HttpOnly`, `SameSite=Lax`, `Secure` en production, avec rotation à chaque usage et coupure de
+  toutes les sessions en cas de réutilisation.
+- Mots de passe hachés avec bcrypt (coût 12), 10 caractères minimum.
+- Limitation de débit : 120 requêtes par minute, 10 par minute sur la connexion et l'inscription.
+- En-têtes de sécurité (helmet côté API, CSP et compagnie côté nginx), corps de requête limités.
+- Configuration validée au démarrage : l'API refuse un secret JWT faible en production.
+- Un non-membre reçoit 404 sur un troupeau, sans indication sur son existence.
+- Images Docker multi-étapes, exécutées sans privilèges, avec sonde de santé.
+
+Variables d'environnement : voir [`backend/.env.example`](backend/.env.example).
+
+## Structure
 
 ```
 licorne-tricount/
 ├── docker-compose.yml
 ├── backend/
+│   ├── Dockerfile, docker-entrypoint.sh   # migrations puis démarrage
 │   ├── prisma/
-│   │   ├── schema.prisma        # User, Group, Membership, Expense, ExpenseShare,
-│   │   │                        # Settlement, CategoryShare (coefficients)
+│   │   ├── schema.prisma
+│   │   ├── migrations/                    # 0_init, 1_refresh_tokens
 │   │   └── seed.ts
 │   └── src/
-│       ├── auth/                # JWT, bcrypt, guard global + décorateur @Public
-│       ├── users/               # profil (nom, emoji, couleur)
-│       ├── groups/              # troupeaux, membres, code d'invitation
-│       ├── expenses/            # dépenses + répartition
-│       ├── balances/            # calcul des soldes + simplification des dettes
-│       ├── coefficients/        # matrice licornes × catégories, normalisation à 100 %
-│       ├── settlements/         # remboursements enregistrés
-│       └── common/
-│           ├── split.ts         # répartition au centime près (plus fort reste)
-│           ├── unicorn.ts       # emojis, couleurs, codes d'invitation
-│           └── categories.ts
+│       ├── config/          # validation des variables d'environnement
+│       ├── auth/            # JWT, sessions à rafraîchissement, guard global
+│       ├── health/          # GET /api/health
+│       ├── users/  groups/  expenses/  balances/  coefficients/  settlements/
+│       └── common/          # répartition au centime, catégories
 └── frontend/
-    ├── nginx.conf               # SPA + proxy /api vers l'API en prod
+    ├── nginx.conf           # SPA, en-têtes de sécurité, proxy /api
+    ├── public/icons/        # icônes PWA
     └── src/
-        ├── api/                 # client fetch typé + endpoints
-        ├── stores/              # Pinia : auth, groups, toasts
-        ├── views/               # 10 écrans (dont l'éditeur de coefficients)
-        ├── components/          # avatar licorne, carte dépense, ligne de solde…
-        ├── utils/format.ts      # centimes ⇄ affichage, dates, catégories
-        └── styles/main.css      # design system pastel
+        ├── api/             # client fetch (renouvellement de session automatique)
+        ├── stores/          # Pinia : auth, groups, toast, confirm
+        ├── views/           # 10 écrans
+        ├── components/      # en-tête, lignes de liste, avatars, PWA, confirmation…
+        ├── utils/           # formats, catégories, installation PWA
+        └── styles/main.css  # système de design (jetons clairs et sombres)
 ```
 
-## 🔌 API
+## API
 
-Toutes les routes sont préfixées par `/api` et protégées par JWT sauf `register` / `login`.
+Toutes les routes sont préfixées par `/api` et exigent un jeton, sauf l'inscription, la connexion,
+le renouvellement de session, la déconnexion et la sonde de santé.
 
 | Méthode | Route | Description |
 | --- | --- | --- |
-| POST | `/auth/register` | Créer un compte |
-| POST | `/auth/login` | Se connecter |
-| GET | `/auth/me` | Profil courant |
-| PATCH | `/users/me` | Modifier nom / emoji / couleur |
-| GET / POST | `/groups` | Lister / créer un troupeau |
-| POST | `/groups/join` | Rejoindre via un code d'invitation |
-| GET / PATCH / DELETE | `/groups/:id` | Détail / modification / suppression |
+| POST | `/auth/register`, `/auth/login` | Créer un compte, se connecter |
+| POST | `/auth/refresh`, `/auth/logout` | Renouveler ou fermer la session (cookie) |
+| GET | `/auth/me` | Utilisateur connecté |
+| PATCH | `/users/me` | Modifier nom, avatar, couleur |
+| GET / POST | `/groups` | Lister, créer un troupeau |
+| POST | `/groups/join` | Rejoindre avec un code |
+| GET / PATCH / DELETE | `/groups/:id` | Lire, modifier, supprimer |
 | POST | `/groups/:id/invite-code` | Régénérer le code d'invitation |
-| DELETE | `/groups/:id/members/:userId` | Quitter ou retirer une licorne |
-| GET | `/groups/:id/balances` | Soldes + remboursements suggérés |
-| GET / PUT | `/groups/:id/coefficients` | Matrice des coefficients (licornes × catégories) |
+| DELETE | `/groups/:id/members/:userId` | Quitter ou retirer un membre |
+| GET | `/groups/:id/balances` | Soldes et remboursements suggérés |
+| GET / PUT | `/groups/:id/coefficients` | Matrice des coefficients |
 | POST | `/groups/:id/coefficients/apply` | Recalculer les dépenses automatiques |
-| GET / POST | `/groups/:id/expenses` | Lister / ajouter une dépense |
+| GET / POST | `/groups/:id/expenses` | Lister, ajouter |
 | GET | `/groups/:id/expenses/stats` | Totaux par catégorie |
-| GET / PATCH / DELETE | `/groups/:id/expenses/:id` | Détail / modification / suppression |
-| GET / POST | `/groups/:id/settlements` | Lister / enregistrer un remboursement |
-| DELETE | `/groups/:id/settlements/:id` | Supprimer un remboursement |
+| GET / PATCH / DELETE | `/groups/:id/expenses/:expenseId` | Lire, modifier, supprimer |
+| GET / POST | `/groups/:id/settlements` | Lister, enregistrer un remboursement |
+| DELETE | `/groups/:id/settlements/:settlementId` | Supprimer un remboursement |
+| GET | `/health` | Sonde de santé |
 
-La documentation interactive complète est sur `/api/docs` (Swagger).
-
-## ⚖️ Comment fonctionnent les coefficients
-
-Chaque troupeau possède une matrice **licornes × catégories**, en pourcentages :
-
-|            | 🏰 Logement | 🍽️ Nourriture | 🚗 Transport |
-| ---------- | ----------- | ------------- | ------------ |
-| Sophie     | 40 %        | 30 %          | 25 %         |
-| Léo        | 20 %        | 30 %          | 25 %         |
-| Maya       | 20 %        | 30 %          | 25 %         |
-| Timothée   | 20 %        | 10 %          | 25 %         |
-| **Total**  | **100 %**   | **100 %**     | **100 %**    |
-
-Quand quelqu'un avance 120 € de logement, l'application crée directement les parts 48 / 24 / 24 / 24 €
-et les soldes bougent en conséquence — aucune saisie de répartition n'est demandée.
-
-Écran **Licornes → Coefficients** pour éditer la matrice : saisie en %, bouton « Égaliser »,
-« Ajuster à 100 % » (la dernière licorne absorbe l'écart) et « Copier partout » (applique la
-répartition de la catégorie courante à toutes les autres). Les dépenses déjà saisies gardent leur
-répartition d'origine, sauf si on lance explicitement le recalcul.
-
-## 🧮 Comment sont calculés les soldes
+## Calculs
 
 ```
-solde = (ce que la licorne a avancé)
-      − (ce qu'elle doit sur les dépenses)
-      + (remboursements qu'elle a envoyés)
-      − (remboursements qu'elle a reçus)
+part d'un membre = montant × son coefficient dans la catégorie   (plus fort reste au centime)
+solde            = payé − dû + remboursements envoyés − remboursements reçus
 ```
 
-Solde positif = on lui doit de l'argent. La somme de tous les soldes d'un troupeau vaut toujours 0.
+Un solde positif signifie qu'on doit de l'argent au membre. La somme des soldes d'un troupeau est
+toujours nulle. Les remboursements suggérés apparient le plus gros débiteur au plus gros créancier,
+soit au plus n − 1 virements pour n membres.
 
-Les remboursements suggérés utilisent un algorithme glouton *min cash flow* : on apparie le plus gros débiteur au plus gros créancier jusqu'à équilibre, ce qui donne au maximum **n−1 virements** pour n licornes.
+## Publier sur GitHub
 
-## 📱 Design
+Le dépôt Git est déjà initialisé. Après avoir créé un dépôt vide sur GitHub :
 
-Mobile-first (largeur max 520 px, centré sur desktop), pensé pour être ajouté à l'écran d'accueil d'un téléphone : halos pastel en fond, cartes en verre dépoli, dégradés arc-en-ciel, respect des safe areas iOS et de `prefers-reduced-motion`.
-
-Captures d'écran dans [`docs/screenshots/`](docs/screenshots).
-
-## 🔒 Avant une mise en production
-
-- changer `JWT_SECRET` (variable d'environnement, aussi dans `docker-compose.yml`)
-- remplacer `prisma db push` par de vraies migrations (`prisma migrate deploy`) dans le `CMD` du Dockerfile backend
-- servir en HTTPS et restreindre `CORS_ORIGIN` au domaine du front
+```bash
+git remote add origin git@github.com:<utilisateur>/licorne-tricount.git
+git push -u origin main
+```

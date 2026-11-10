@@ -10,6 +10,7 @@ import UnicornAvatar from '@/components/UnicornAvatar.vue';
 import GroupAvatar from '@/components/GroupAvatar.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import LoadingState from '@/components/LoadingState.vue';
+import InstallPrompt from '@/components/InstallPrompt.vue';
 
 const auth = useAuthStore();
 const groups = useGroupsStore();
@@ -46,6 +47,8 @@ const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? 's' : ''}`;
         <UnicornAvatar :emoji="auth.user?.emoji" :color="auth.user?.color" :size="40" />
       </button>
     </header>
+
+    <InstallPrompt />
 
     <LoadingState v-if="groups.loading && !groups.groups.length" />
 

@@ -15,7 +15,7 @@ const email = ref('');
 const password = ref('');
 const error = ref('');
 
-const passwordOk = computed(() => password.value.length >= 8);
+const passwordOk = computed(() => password.value.length >= 10);
 const canSubmit = computed(() => name.value.trim().length >= 2 && email.value && passwordOk.value);
 
 async function submit() {
@@ -61,9 +61,9 @@ async function submit() {
           autocomplete="new-password"
           aria-describedby="password-hint"
           required
-          minlength="8"
+          minlength="10"
         />
-        <p id="password-hint" class="hint" :class="{ positive: passwordOk }">8 caractères minimum</p>
+        <p id="password-hint" class="hint" :class="{ positive: passwordOk }">10 caractères minimum</p>
       </div>
 
       <p v-if="error" class="alert alert-error" role="alert">

@@ -38,7 +38,7 @@ async function save() {
 async function logout() {
   const ok = await confirm.ask({ title: 'Se déconnecter ?', confirmLabel: 'Se déconnecter' });
   if (!ok) return;
-  auth.logout();
+  await auth.logout();
   groups.reset();
   router.replace('/login');
 }
