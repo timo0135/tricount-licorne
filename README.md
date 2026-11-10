@@ -16,6 +16,8 @@ API **NestJS + Prisma + PostgreSQL**, front **Vue 3 + Vite + TypeScript**, le to
 
 - **Comptes** : inscription, connexion, session de 30 jours renouvelée automatiquement, profil
   (photo, ou avatar licorne et couleur).
+- **Double authentification** facultative (Profil → Sécurité) : codes TOTP à 6 chiffres
+  (Mots de passe d'iPhone, Google Authenticator, 1Password…) et 10 codes de secours.
 - **Troupeaux** (groupes) : création, code d'invitation à partager, membres, rôles créateur et membre,
   photo et bannière personnalisables.
 - **Familles** : plusieurs membres d'une même famille comptent pour une seule entité dans le
@@ -98,9 +100,9 @@ L'installation exige une adresse **HTTPS** : elle sera possible une fois l'appli
 cd backend && npm test
 ```
 
-48 tests unitaires : répartition au centime près, soldes et simplification des dettes,
+65 tests unitaires : répartition au centime près, soldes et simplification des dettes,
 normalisation des coefficients, familles (entités), traitement des photos, validation de la
-configuration, rotation des sessions.
+configuration, rotation des sessions, double authentification.
 
 ## Sécurité
 
@@ -108,6 +110,9 @@ configuration, rotation des sessions.
   `HttpOnly`, `SameSite=Lax`, `Secure` en production, avec rotation à chaque usage et coupure de
   toutes les sessions en cas de réutilisation.
 - Mots de passe hachés avec bcrypt (coût 12), 10 caractères minimum.
+- Double authentification TOTP : secret chiffré en base (AES-256-GCM, clé `ENCRYPTION_KEY`),
+  chaque code accepté une seule fois, codes de secours hachés et à usage unique, deuxième étape
+  limitée à 5 essais par minute. Ne jamais changer `ENCRYPTION_KEY` une fois en production.
 - Limitation de débit : 120 requêtes par minute, 10 par minute sur la connexion et l'inscription.
 - En-têtes de sécurité (helmet côté API, CSP et compagnie côté nginx), corps de requête limités.
 - Configuration validée au démarrage : l'API refuse un secret JWT faible en production.
@@ -125,7 +130,7 @@ licorne-tricount/
 │   ├── Dockerfile, docker-entrypoint.sh   # migrations puis démarrage
 │   ├── prisma/
 │   │   ├── schema.prisma
-│   │   ├── migrations/                    # 0_init, 1_refresh_tokens, 2_families_and_photos
+│   │   ├── migrations/                    # 0_init … 3_two_factor
 │   │   └── seed.ts
 │   └── src/
 │       ├── config/          # validation des variables d'environnement
@@ -155,7 +160,10 @@ le renouvellement de session, la déconnexion et la sonde de santé.
 | Méthode | Route | Description |
 | --- | --- | --- |
 | POST | `/auth/register`, `/auth/login` | Créer un compte, se connecter |
+| POST | `/auth/login/2fa` | Deuxième étape de connexion (code ou code de secours) |
 | POST | `/auth/refresh`, `/auth/logout` | Renouveler ou fermer la session (cookie) |
+| GET | `/auth/2fa` | État de la double authentification |
+| POST | `/auth/2fa/setup`, `/auth/2fa/enable`, `/auth/2fa/disable`, `/auth/2fa/recovery-codes` | Activer, désactiver, renouveler les codes de secours |
 | GET | `/auth/me` | Utilisateur connecté |
 | PATCH | `/users/me` | Modifier nom, avatar, couleur |
 | PUT / DELETE | `/users/me/avatar` | Photo de profil (multipart, champ `file`) |

@@ -69,6 +69,11 @@ const router = createRouter({
       props: true,
     },
     { path: '/profile', name: 'profile', component: () => import('@/views/ProfileView.vue') },
+    {
+      path: '/profile/security',
+      name: 'security',
+      component: () => import('@/views/SecurityView.vue'),
+    },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
 });

@@ -6,6 +6,8 @@ export interface User {
   color: string;
   /** Photo de profil ; quand elle existe, elle remplace l'emoji. */
   avatarUrl?: string | null;
+  /** Double authentification activée (renvoyé seulement pour soi-même). */
+  twoFactorEnabled?: boolean;
 }
 
 export type Role = 'OWNER' | 'MEMBER';
@@ -145,6 +147,25 @@ export interface CategoryStat {
 export interface AuthResponse {
   user: User;
   accessToken: string;
+}
+
+/** Réponse de connexion quand la double authentification est activée. */
+export interface TwoFactorChallenge {
+  twoFactorRequired: true;
+  challengeToken: string;
+}
+
+export interface TwoFactorSetup {
+  otpauthUrl: string;
+  /** QR code en data URL (PNG). */
+  qrCode: string;
+  /** Secret à saisir à la main, par groupes de 4. */
+  secret: string;
+}
+
+export interface TwoFactorStatus {
+  enabled: boolean;
+  remainingRecoveryCodes: number;
 }
 
 export interface ExpenseParticipantPayload {

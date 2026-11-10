@@ -9,19 +9,35 @@ import type {
   ExpensePayload,
   Group,
   Settlement,
+  TwoFactorChallenge,
+  TwoFactorSetup,
+  TwoFactorStatus,
   User,
 } from './types';
 
 export const authApi = {
   register: (body: { email: string; name: string; password: string }) =>
     api.post<AuthResponse>('/auth/register', body),
-  login: (body: { email: string; password: string }) => api.post<AuthResponse>('/auth/login', body),
+  login: (body: { email: string; password: string }) =>
+    api.post<AuthResponse | TwoFactorChallenge>('/auth/login', body),
+  loginTwoFactor: (body: { challengeToken: string; code: string }) =>
+    api.post<AuthResponse>('/auth/login/2fa', body),
   me: () => api.get<User>('/auth/me'),
   logout: () => api.post<void>('/auth/logout'),
   updateProfile: (body: { name?: string; emoji?: string; color?: string }) =>
     api.patch<User>('/users/me', body),
   setAvatar: (file: Blob) => api.upload<User>('/users/me/avatar', file),
   removeAvatar: () => api.delete<User>('/users/me/avatar'),
+};
+
+export const twoFactorApi = {
+  status: () => api.get<TwoFactorStatus>('/auth/2fa'),
+  setup: () => api.post<TwoFactorSetup>('/auth/2fa/setup'),
+  enable: (code: string) => api.post<{ recoveryCodes: string[] }>('/auth/2fa/enable', { code }),
+  disable: (password: string, code: string) =>
+    api.post<{ disabled: boolean }>('/auth/2fa/disable', { password, code }),
+  regenerateRecoveryCodes: (code: string) =>
+    api.post<{ recoveryCodes: string[] }>('/auth/2fa/recovery-codes', { code }),
 };
 
 export const groupsApi = {

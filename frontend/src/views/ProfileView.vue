@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { Check, LogOut, Trash2 } from 'lucide-vue-next';
+import { Check, ChevronRight, LogOut, ShieldCheck, Trash2 } from 'lucide-vue-next';
 import { checkImage, prepareImage } from '@/utils/image';
 import ImagePickerButton from '@/components/ImagePickerButton.vue';
 import { useAuthStore } from '@/stores/auth';
@@ -151,6 +151,18 @@ async function logout() {
       </button>
     </form>
 
+    <h2 class="section-title security-title">Sécurité</h2>
+    <div class="list">
+      <RouterLink to="/profile/security" class="list-row">
+        <ShieldCheck :size="20" :stroke-width="1.75" class="faint" />
+        <div class="grow">
+          <p class="list-title">Double authentification</p>
+          <p class="list-sub">{{ auth.user?.twoFactorEnabled ? 'Activée' : 'Désactivée' }}</p>
+        </div>
+        <ChevronRight class="chevron" :size="18" />
+      </RouterLink>
+    </div>
+
     <div class="divider spaced" />
 
     <button class="btn btn-danger btn-block" @click="logout">
@@ -214,6 +226,10 @@ async function logout() {
   box-shadow:
     0 0 0 2px var(--bg),
     0 0 0 4px var(--text);
+}
+
+.security-title {
+  margin-top: 1.75rem;
 }
 
 .spaced {

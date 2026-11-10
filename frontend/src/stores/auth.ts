@@ -40,6 +40,8 @@ export const useAuthStore = defineStore('auth', () => {
   const loading = ref(false);
   /** Vrai si la session a été rouverte sans réseau (données en cache). */
   const offline = ref(false);
+  /** Jeton de la deuxième étape de connexion (double authentification). */
+  const challengeToken = ref<string | null>(null);
 
   const isAuthenticated = computed(() => Boolean(user.value));
 
@@ -68,15 +70,44 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function login(email: string, password: string) {
+  /** Première étape : renvoie « two-factor » si un code est encore demandé. */
+  async function login(email: string, password: string): Promise<'done' | 'two-factor'> {
     loading.value = true;
     try {
       const res = await authApi.login({ email, password });
+      if ('twoFactorRequired' in res) {
+        challengeToken.value = res.challengeToken;
+        return 'two-factor';
+      }
+      tokenStore.set(res.accessToken);
+      setUser(res.user);
+      return 'done';
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  /** Deuxième étape : code à 6 chiffres ou code de secours. */
+  async function verifyTwoFactor(code: string) {
+    if (!challengeToken.value) throw new Error('Reconnecte-toi avec ton mot de passe.');
+    loading.value = true;
+    try {
+      const res = await authApi.loginTwoFactor({ challengeToken: challengeToken.value, code });
+      challengeToken.value = null;
       tokenStore.set(res.accessToken);
       setUser(res.user);
     } finally {
       loading.value = false;
     }
+  }
+
+  function cancelTwoFactor() {
+    challengeToken.value = null;
+  }
+
+  /** Après activation ou désactivation de la 2FA. */
+  function setTwoFactorEnabled(enabled: boolean) {
+    if (user.value) user.value = { ...user.value, twoFactorEnabled: enabled };
   }
 
   async function register(name: string, email: string, password: string) {
@@ -130,6 +161,10 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     restore,
     login,
+    verifyTwoFactor,
+    cancelTwoFactor,
+    setTwoFactorEnabled,
+    challengeToken,
     register,
     updateProfile,
     setAvatar,
