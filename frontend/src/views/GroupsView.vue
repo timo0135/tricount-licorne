@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { ChevronRight, Link2, Plus } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/auth';
 import { useGroupsStore } from '@/stores/groups';
 import { useToastStore } from '@/stores/toast';
-import { formatMoney, gradientStyle } from '@/utils/format';
+import { formatMoney } from '@/utils/format';
 import UnicornAvatar from '@/components/UnicornAvatar.vue';
+import GroupAvatar from '@/components/GroupAvatar.vue';
 import EmptyState from '@/components/EmptyState.vue';
-import LoadingUnicorn from '@/components/LoadingUnicorn.vue';
+import LoadingState from '@/components/LoadingState.vue';
 
 const auth = useAuthStore();
 const groups = useGroupsStore();
@@ -22,110 +24,112 @@ onMounted(async () => {
   }
 });
 
-/** Solde global toutes prairies confondues (en EUR, devise majoritaire). */
+/** Solde cumulé sur tous les troupeaux en euros (les autres devises sont ignorées). */
 const globalBalance = computed(() =>
-  groups.groups.reduce((sum, g) => sum + g.myBalanceCents, 0),
+  groups.groups.filter((g) => g.currency === 'EUR').reduce((sum, g) => sum + g.myBalanceCents, 0),
 );
+
+const balanceLabel = (cents: number) =>
+  cents > 0 ? 'à recevoir' : cents < 0 ? 'à rembourser' : 'à jour';
+
+const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? 's' : ''}`;
 </script>
 
 <template>
   <main class="page">
-    <header class="header">
+    <header class="top">
       <div class="grow">
-        <p class="muted">Coucou {{ auth.user?.name }} 👋</p>
-        <h1>Mes troupeaux</h1>
+        <p class="muted">Bonjour {{ auth.user?.name }}</p>
+        <h1>Troupeaux</h1>
       </div>
       <button class="avatar-btn" aria-label="Mon profil" @click="router.push('/profile')">
-        <UnicornAvatar :emoji="auth.user?.emoji" :color="auth.user?.color" :size="44" />
+        <UnicornAvatar :emoji="auth.user?.emoji" :color="auth.user?.color" :size="40" />
       </button>
     </header>
 
-    <section v-if="groups.groups.length" class="card summary" :style="{ background: 'var(--gradient-aurora)' }">
-      <p class="summary-label">Solde global</p>
-      <p class="summary-amount">
-        {{ globalBalance > 0 ? '+' : '' }}{{ formatMoney(globalBalance) }}
-      </p>
-      <p class="summary-hint">
-        {{
-          globalBalance > 0
-            ? 'On te doit des paillettes ✨'
-            : globalBalance < 0
-              ? 'Tu dois des paillettes 🪄'
-              : 'Tout est équilibré 🌈'
-        }}
-      </p>
-    </section>
+    <LoadingState v-if="groups.loading && !groups.groups.length" />
 
-    <LoadingUnicorn v-if="groups.loading && !groups.groups.length" />
+    <template v-else-if="groups.groups.length">
+      <section class="card summary">
+        <p class="muted">Solde total</p>
+        <p
+          class="total num"
+          :class="{ positive: globalBalance > 0, negative: globalBalance < 0 }"
+        >
+          {{ globalBalance > 0 ? '+' : globalBalance < 0 ? '−' : ''
+          }}{{ formatMoney(Math.abs(globalBalance)) }}
+        </p>
+        <p class="muted">
+          {{
+            globalBalance > 0
+              ? 'On te doit cette somme, tous troupeaux confondus.'
+              : globalBalance < 0
+                ? 'Tu dois cette somme, tous troupeaux confondus.'
+                : 'Tous tes comptes sont à jour.'
+          }}
+        </p>
+      </section>
 
-    <div v-else class="stack list">
-      <article
-        v-for="group in groups.groups"
-        :key="group.id"
-        class="card card-tight card-press group"
-        @click="router.push(`/groups/${group.id}`)"
-      >
-        <span class="cover" :style="{ background: gradientStyle(group.gradient) }">
-          {{ group.emoji }}
-        </span>
-
-        <div class="grow">
-          <div class="between">
-            <h2 class="truncate">{{ group.name }}</h2>
-            <span
-              class="pill"
-              :class="group.myBalanceCents >= 0 ? 'pill-positive' : 'pill-negative'"
-            >
-              {{ group.myBalanceCents > 0 ? '+' : ''
-              }}{{ formatMoney(group.myBalanceCents, group.currency) }}
-            </span>
-          </div>
-          <div class="between meta">
-            <p class="muted truncate">
-              {{ group.members.length }} licorne{{ group.members.length > 1 ? 's' : '' }} ·
-              {{ group.expenseCount }} dépense{{ group.expenseCount > 1 ? 's' : '' }}
+      <h2 class="section-title">Mes troupeaux</h2>
+      <div class="list">
+        <RouterLink
+          v-for="group in groups.groups"
+          :key="group.id"
+          :to="`/groups/${group.id}`"
+          class="list-row"
+        >
+          <GroupAvatar :emoji="group.emoji" :tint="group.gradient" />
+          <div class="grow">
+            <p class="list-title truncate">{{ group.name }}</p>
+            <p class="list-sub truncate">
+              {{ plural(group.members.length, 'membre') }} ·
+              {{ plural(group.expenseCount, 'dépense') }}
             </p>
-            <p class="faint nowrap">{{ formatMoney(group.totalCents, group.currency) }} au total</p>
           </div>
-          <div class="avatars">
-            <UnicornAvatar
-              v-for="m in group.members.slice(0, 5)"
-              :key="m.id"
-              :emoji="m.user.emoji"
-              :color="m.user.color"
-              :size="24"
-              ring
-            />
-            <span v-if="group.members.length > 5" class="faint">
-              +{{ group.members.length - 5 }}
-            </span>
+          <div class="balance">
+            <p
+              class="num amount"
+              :class="{ positive: group.myBalanceCents > 0, negative: group.myBalanceCents < 0 }"
+            >
+              {{ group.myBalanceCents > 0 ? '+' : group.myBalanceCents < 0 ? '−' : ''
+              }}{{ formatMoney(Math.abs(group.myBalanceCents), group.currency) }}
+            </p>
+            <p class="faint">{{ balanceLabel(group.myBalanceCents) }}</p>
           </div>
-        </div>
-      </article>
+          <ChevronRight class="chevron" :size="18" />
+        </RouterLink>
+      </div>
+    </template>
 
-      <EmptyState
-        v-if="!groups.groups.length && !groups.loading"
-        emoji="🌈"
-        title="Aucun troupeau pour l'instant"
-        text="Crée ta première prairie de dépenses ou rejoins celle d'une amie licorne."
-      />
-    </div>
+    <EmptyState
+      v-else
+      title="Aucun troupeau pour l'instant"
+      text="Crée un troupeau pour ton groupe, ou rejoins-en un avec un code d'invitation."
+    />
 
-    <nav class="dock">
-      <button class="btn btn-ghost grow" @click="router.push('/groups/join')">
-        🔗 Rejoindre
+    <nav class="bottom-bar">
+      <button class="btn btn-secondary grow" @click="router.push('/groups/join')">
+        <Link2 :size="18" :stroke-width="2" /> Rejoindre
       </button>
-      <button class="btn grow" @click="router.push('/groups/new')">✨ Nouveau</button>
+      <button class="btn grow" @click="router.push('/groups/new')">
+        <Plus :size="18" :stroke-width="2.25" /> Nouveau troupeau
+      </button>
     </nav>
   </main>
 </template>
 
 <style scoped>
-.header {
+.top {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  margin-bottom: 1.1rem;
+  min-height: 64px;
+  margin-bottom: 1rem;
+}
+
+.top h1 {
+  font-size: var(--fs-2xl);
+  letter-spacing: -0.025em;
 }
 
 .avatar-btn {
@@ -133,83 +137,27 @@ const globalBalance = computed(() =>
   border: none;
   padding: 0;
   cursor: pointer;
+  border-radius: 50%;
 }
 
 .summary {
-  text-align: center;
-  color: #fff;
-  border: none;
-  margin-bottom: 1rem;
-  padding: 1.3rem;
+  margin-bottom: 1.5rem;
 }
 
-.summary-label {
-  font-size: 0.8rem;
-  font-weight: 700;
-  opacity: 0.9;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.summary-amount {
-  font-size: 2.1rem;
-  font-weight: 700;
-  margin: 0.15rem 0;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
-}
-
-.summary-hint {
-  font-size: 0.85rem;
+.total {
+  font-size: 2rem;
   font-weight: 600;
-  opacity: 0.95;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+  margin: 0.125rem 0 0.25rem;
 }
 
-.group {
-  display: flex;
-  gap: 0.85rem;
-  align-items: center;
-}
-
-.cover {
-  width: 56px;
-  height: 56px;
-  border-radius: var(--radius);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.6rem;
+.balance {
+  text-align: right;
   flex-shrink: 0;
-  box-shadow: var(--shadow-sm);
 }
 
-h2 {
-  font-size: 1.02rem;
-}
-
-.meta p {
-  font-size: 0.78rem;
-}
-
-.nowrap {
-  white-space: nowrap;
-}
-
-.avatars {
-  display: flex;
-  align-items: center;
-  gap: 0.2rem;
-  margin-top: 0.35rem;
-}
-
-.dock {
-  position: fixed;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(100%, 520px);
-  display: flex;
-  gap: 0.6rem;
-  padding: 0.8rem 1.1rem calc(0.9rem + var(--safe-bottom));
-  background: linear-gradient(to top, var(--bg) 62%, transparent);
+.amount {
+  font-weight: 600;
 }
 </style>

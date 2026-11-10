@@ -16,15 +16,19 @@ import {
   parseAmountToCents,
   toDateInput,
 } from '@/utils/format';
+import { Check, CircleAlert, Minus, Pencil, Plus, Trash2, Wand2 } from 'lucide-vue-next';
+import { useConfirmStore } from '@/stores/confirm';
 import AppHeader from '@/components/AppHeader.vue';
 import UnicornAvatar from '@/components/UnicornAvatar.vue';
-import LoadingUnicorn from '@/components/LoadingUnicorn.vue';
+import CategoryIcon from '@/components/CategoryIcon.vue';
+import LoadingState from '@/components/LoadingState.vue';
 
 const props = defineProps<{ id: string; expenseId?: string }>();
 
 const auth = useAuthStore();
 const store = useGroupsStore();
 const toast = useToastStore();
+const confirm = useConfirmStore();
 const router = useRouter();
 
 interface ParticipantRow {
@@ -51,7 +55,13 @@ const saving = ref(false);
 const error = ref('');
 const isEdit = computed(() => Boolean(props.expenseId));
 
-const group = computed(() => store.current);
+const group = computed(() => (store.current?.id === props.id ? store.current : null));
+const currencySymbol = computed(() => (currency.value === 'EUR' ? '€' : currency.value));
+const modes: { key: SplitMode; label: string }[] = [
+  { key: 'EQUAL', label: 'Égal' },
+  { key: 'SHARES', label: 'Par parts' },
+  { key: 'EXACT', label: 'Montants' },
+];
 const currency = computed(() => group.value?.currency ?? 'EUR');
 const totalCents = computed(() => parseAmountToCents(amount.value));
 const selectedRows = computed(() => rows.value.filter((r) => r.selected));
@@ -124,7 +134,7 @@ function buildRows() {
 
 onMounted(async () => {
   try {
-    if (!group.value || group.value.id !== props.id) await store.openGroup(props.id);
+    if (!group.value) await store.openGroup(props.id);
     if (!store.coefficients || store.coefficients.groupId !== props.id) {
       await store.fetchCoefficients(props.id);
     }
@@ -223,15 +233,15 @@ async function submit() {
   error.value = '';
 
   if (totalCents.value <= 0) {
-    error.value = 'Le montant doit être supérieur à 0';
+    error.value = 'Le montant doit être supérieur à 0.';
     return;
   }
   if (splitMode.value !== 'AUTO' && !selectedRows.value.length) {
-    error.value = 'Sélectionne au moins une licorne pour partager la dépense';
+    error.value = 'Sélectionne au moins une personne pour partager la dépense.';
     return;
   }
   if (splitMode.value === 'EXACT' && exactRemaining.value !== 0) {
-    error.value = `Il reste ${formatMoney(exactRemaining.value, currency.value)} à répartir`;
+    error.value = `Il reste ${formatMoney(exactRemaining.value, currency.value)} à répartir.`;
     return;
   }
 
@@ -257,10 +267,10 @@ async function submit() {
   try {
     if (props.expenseId) {
       await store.editExpense(props.id, props.expenseId, payload);
-      toast.success('Dépense mise à jour ✨');
+      toast.success('Dépense modifiée');
     } else {
       await store.addExpense(props.id, payload);
-      toast.success('Dépense ajoutée ✨');
+      toast.success('Dépense ajoutée');
     }
     router.replace(`/groups/${props.id}`);
   } catch (e) {
@@ -271,7 +281,14 @@ async function submit() {
 }
 
 async function destroy() {
-  if (!props.expenseId || !confirm('Supprimer cette dépense ?')) return;
+  if (!props.expenseId) return;
+  const ok = await confirm.ask({
+    title: 'Supprimer cette dépense ?',
+    message: 'Les soldes du troupeau seront recalculés.',
+    confirmLabel: 'Supprimer',
+    danger: true,
+  });
+  if (!ok) return;
   try {
     await store.deleteExpense(props.id, props.expenseId);
     toast.success('Dépense supprimée');
@@ -286,18 +303,20 @@ async function destroy() {
   <main class="page">
     <AppHeader :title="isEdit ? 'Modifier la dépense' : 'Nouvelle dépense'" back />
 
-    <LoadingUnicorn v-if="!group" />
+    <LoadingState v-if="!group" />
 
     <form v-else class="stack" @submit.prevent="submit">
-      <section class="card amount-card">
+      <section class="card amount-field">
+        <label class="sr-only" for="amount">Montant</label>
         <input
+          id="amount"
           v-model="amount"
           class="amount-input"
           inputmode="decimal"
           placeholder="0,00"
-          aria-label="Montant"
+          autocomplete="off"
         />
-        <p class="muted center">{{ currency === 'EUR' ? '€' : currency }}</p>
+        <span class="amount-currency">{{ currencySymbol }}</span>
       </section>
 
       <div class="field">
@@ -306,41 +325,46 @@ async function destroy() {
           id="title"
           v-model="title"
           class="input"
-          placeholder="Crêpes au caramel"
+          placeholder="Courses de la semaine"
           required
           maxlength="80"
         />
       </div>
 
       <div class="field">
-        <span class="label">Catégorie</span>
-        <div class="scroller">
+        <span class="label" id="cat-label">Catégorie</span>
+        <div class="categories" role="radiogroup" aria-labelledby="cat-label">
           <button
             v-for="(meta, key) in CATEGORY_META"
             :key="key"
             type="button"
-            class="chip"
+            role="radio"
+            :aria-checked="category === key"
+            class="category"
             :class="{ active: category === key }"
             @click="category = key"
           >
-            {{ meta.emoji }} {{ meta.label }}
+            <CategoryIcon :category="key" :size="36" />
+            <span>{{ meta.label }}</span>
           </button>
         </div>
       </div>
 
       <div class="field">
-        <span class="label">Payé par</span>
-        <div class="scroller">
+        <span class="label" id="payer-label">Payé par</span>
+        <div class="scroller" role="radiogroup" aria-labelledby="payer-label">
           <button
             v-for="r in rows"
             :key="r.userId"
             type="button"
-            class="payer"
-            :class="{ selected: paidById === r.userId }"
+            role="radio"
+            :aria-checked="paidById === r.userId"
+            class="chip payer"
+            :class="{ active: paidById === r.userId }"
             @click="paidById = r.userId"
           >
-            <UnicornAvatar :emoji="r.emoji" :color="r.color" :size="34" />
-            <span>{{ r.name }}</span>
+            <UnicornAvatar :emoji="r.emoji" :color="r.color" :size="24" />
+            {{ r.name }}
           </button>
         </div>
       </div>
@@ -350,252 +374,281 @@ async function destroy() {
         <input id="date" v-model="date" class="input" type="date" />
       </div>
 
-      <!-- ---------- Répartition automatique (par défaut) ---------- -->
-      <section v-if="!customized" class="card">
-        <div class="between">
-          <h2>Répartition</h2>
-          <span class="pill pill-positive">🪄 Automatique</span>
+      <!-- Répartition automatique (par défaut) -->
+      <section v-if="!customized">
+        <div class="section-head">
+          <h2 class="section-title">Répartition</h2>
+          <span class="badge badge-accent"><Wand2 :size="12" :stroke-width="2" /> Automatique</span>
         </div>
-
-        <p class="muted auto-hint">
-          Selon les coefficients du troupeau pour
-          <strong>{{ categoryMeta(category).label.toLowerCase() }}</strong> —
-          <RouterLink :to="`/groups/${id}/coefficients`">régler les coefficients</RouterLink>
+        <div class="list">
+          <div v-for="r in rows" :key="r.userId" class="list-row compact" :class="{ off: !r.selected }">
+            <UnicornAvatar :emoji="r.emoji" :color="r.color" :size="32" />
+            <span class="grow list-title truncate">{{ r.name }}</span>
+            <span class="faint num pct">{{ formatPercent(autoWeights.get(r.userId) ?? 0) }}</span>
+            <span class="share num">{{ formatMoney(preview[r.userId] ?? 0, currency) }}</span>
+          </div>
+        </div>
+        <p class="hint explain">
+          Selon les coefficients « {{ categoryMeta(category).label.toLowerCase() }} » du troupeau.
+          <RouterLink :to="`/groups/${id}/coefficients`">Modifier les coefficients</RouterLink>
         </p>
-
-        <div class="divider" />
-
-        <div v-for="r in rows" :key="r.userId" class="participant" :class="{ off: !r.selected }">
-          <UnicornAvatar :emoji="r.emoji" :color="r.color" :size="36" :ring="r.selected" />
-          <span class="grow truncate">{{ r.name }}</span>
-          <span class="coeff">{{ formatPercent(autoWeights.get(r.userId) ?? 0) }}</span>
-          <span class="share">{{ formatMoney(preview[r.userId] ?? 0, currency) }}</span>
-        </div>
-
-        <p v-if="!autoIsUsable" class="hint negative">
+        <p v-if="!autoIsUsable" class="alert alert-warning">
           Aucun coefficient pour cette catégorie : la dépense sera partagée à parts égales.
         </p>
-
-        <div class="divider" />
-
-        <button type="button" class="btn btn-sm btn-ghost btn-block" @click="customize">
-          ✏️ Personnaliser pour cette dépense
+        <button type="button" class="btn btn-secondary btn-sm customize" @click="customize">
+          <Pencil :size="16" :stroke-width="1.75" /> Personnaliser pour cette dépense
         </button>
       </section>
 
-      <!-- ---------- Répartition personnalisée ---------- -->
-      <section v-else class="card">
-        <div class="between">
-          <h2>Partagé entre</h2>
-          <div class="row">
-            <button type="button" class="faint link" @click="selectAll(true)">Tous</button>
-            <button type="button" class="faint link" @click="selectAll(false)">Aucun</button>
+      <!-- Répartition personnalisée -->
+      <section v-else>
+        <div class="section-head">
+          <h2 class="section-title">Répartition personnalisée</h2>
+          <div class="row tight">
+            <button type="button" class="text-btn" @click="selectAll(true)">Tous</button>
+            <button type="button" class="text-btn" @click="selectAll(false)">Aucun</button>
           </div>
         </div>
 
-        <div class="scroller modes">
+        <div class="segmented modes" role="tablist" aria-label="Mode de répartition">
           <button
+            v-for="m in modes"
+            :key="m.key"
             type="button"
-            class="chip"
-            :class="{ active: splitMode === 'EQUAL' }"
-            @click="splitMode = 'EQUAL'"
+            role="tab"
+            :aria-selected="splitMode === m.key"
+            :class="{ active: splitMode === m.key }"
+            @click="splitMode = m.key"
           >
-            ⚖️ Parts égales
-          </button>
-          <button
-            type="button"
-            class="chip"
-            :class="{ active: splitMode === 'SHARES' }"
-            @click="splitMode = 'SHARES'"
-          >
-            🧮 Par parts
-          </button>
-          <button
-            type="button"
-            class="chip"
-            :class="{ active: splitMode === 'EXACT' }"
-            @click="splitMode = 'EXACT'"
-          >
-            ✍️ Montants exacts
+            {{ m.label }}
           </button>
         </div>
 
-        <div class="divider" />
+        <div class="list">
+          <div v-for="r in rows" :key="r.userId" class="list-row compact" :class="{ off: !r.selected }">
+            <button
+              type="button"
+              class="checkbox"
+              role="checkbox"
+              :aria-checked="r.selected"
+              :aria-label="`Inclure ${r.name}`"
+              @click="toggle(r)"
+            >
+              <Check v-if="r.selected" :size="14" :stroke-width="3" />
+            </button>
+            <UnicornAvatar :emoji="r.emoji" :color="r.color" :size="32" />
+            <span class="grow list-title truncate" @click="toggle(r)">{{ r.name }}</span>
 
-        <div v-for="r in rows" :key="r.userId" class="participant" :class="{ off: !r.selected }">
-          <button type="button" class="check" @click="toggle(r)">
-            <UnicornAvatar :emoji="r.emoji" :color="r.color" :size="36" :ring="r.selected" />
-          </button>
-          <span class="grow truncate" @click="toggle(r)">{{ r.name }}</span>
+            <template v-if="r.selected">
+              <div v-if="splitMode === 'SHARES'" class="stepper">
+                <button
+                  type="button"
+                  aria-label="Une part de moins"
+                  @click="r.weight = Math.max(1, r.weight - 1)"
+                >
+                  <Minus :size="14" :stroke-width="2.25" />
+                </button>
+                <span class="num">{{ r.weight }}</span>
+                <button
+                  type="button"
+                  aria-label="Une part de plus"
+                  @click="r.weight = Math.min(99, r.weight + 1)"
+                >
+                  <Plus :size="14" :stroke-width="2.25" />
+                </button>
+              </div>
 
-          <template v-if="r.selected">
-            <div v-if="splitMode === 'SHARES'" class="weight">
-              <button type="button" class="step" @click="r.weight = Math.max(1, r.weight - 1)">
-                −
-              </button>
-              <span>{{ r.weight }}</span>
-              <button type="button" class="step" @click="r.weight = Math.min(99, r.weight + 1)">
-                ＋
-              </button>
-            </div>
-
-            <input
-              v-if="splitMode === 'EXACT'"
-              v-model="r.amount"
-              class="input exact"
-              inputmode="decimal"
-              placeholder="0,00"
-            />
-
-            <span v-else class="share">{{ formatMoney(preview[r.userId] ?? 0, currency) }}</span>
-          </template>
+              <input
+                v-if="splitMode === 'EXACT'"
+                v-model="r.amount"
+                class="input exact num"
+                inputmode="decimal"
+                placeholder="0,00"
+                :aria-label="`Montant pour ${r.name}`"
+              />
+              <span v-else class="share num">{{ formatMoney(preview[r.userId] ?? 0, currency) }}</span>
+            </template>
+          </div>
         </div>
 
-        <p v-if="splitMode === 'EXACT'" class="center" :class="exactRemaining === 0 ? 'positive' : 'negative'">
+        <p
+          v-if="splitMode === 'EXACT'"
+          class="hint explain num"
+          :class="exactRemaining === 0 ? 'positive' : 'negative'"
+        >
           {{
             exactRemaining === 0
-              ? 'Tout est réparti ✨'
-              : `Reste ${formatMoney(exactRemaining, currency)}`
+              ? 'Le montant est entièrement réparti.'
+              : exactRemaining > 0
+                ? `Reste ${formatMoney(exactRemaining, currency)} à répartir.`
+                : `Dépassement de ${formatMoney(-exactRemaining, currency)}.`
           }}
         </p>
 
-        <div class="divider" />
-
-        <button type="button" class="btn btn-sm btn-ghost btn-block" @click="backToAuto">
-          🪄 Revenir aux coefficients du troupeau
+        <button type="button" class="btn btn-secondary btn-sm customize" @click="backToAuto">
+          <Wand2 :size="16" :stroke-width="1.75" /> Revenir aux coefficients du troupeau
         </button>
       </section>
 
       <div class="field">
-        <label class="label" for="note">Note (optionnel)</label>
+        <label class="label" for="note">Note <span class="faint">(facultatif)</span></label>
         <textarea id="note" v-model="note" class="textarea" maxlength="280" />
       </div>
 
-      <p v-if="error" class="error-box">{{ error }}</p>
+      <p v-if="error" class="alert alert-error" role="alert">
+        <CircleAlert :size="16" :stroke-width="2" /> {{ error }}
+      </p>
 
-      <button class="btn btn-block" type="submit" :disabled="saving">
-        {{ saving ? 'Enregistrement…' : isEdit ? 'Enregistrer ✨' : 'Ajouter la dépense ✨' }}
-      </button>
-
-      <button v-if="isEdit" type="button" class="btn btn-danger btn-block" @click="destroy">
-        🗑️ Supprimer
-      </button>
+      <div class="stack-sm">
+        <button class="btn btn-block" type="submit" :disabled="saving || !title.trim() || totalCents <= 0">
+          {{ saving ? 'Enregistrement…' : isEdit ? 'Enregistrer' : 'Ajouter la dépense' }}
+        </button>
+        <button v-if="isEdit" type="button" class="btn btn-danger btn-block" @click="destroy">
+          <Trash2 :size="18" :stroke-width="1.75" /> Supprimer la dépense
+        </button>
+      </div>
     </form>
   </main>
 </template>
 
 <style scoped>
-.amount-card {
-  padding: 1.4rem 1rem 1rem;
+.categories {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.375rem;
 }
 
-.payer {
+.category {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.25rem;
-  padding: 0.5rem 0.7rem;
-  border-radius: var(--radius);
-  border: 2px solid transparent;
-  background: rgba(255, 255, 255, 0.7);
-  font-size: 0.76rem;
-  font-weight: 700;
-  color: var(--ink-soft);
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.payer.selected {
-  border-color: var(--lilas);
-  color: var(--ink);
-  box-shadow: var(--shadow-sm);
-}
-
-.modes {
-  margin-top: 0.6rem;
-}
-
-.participant {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  padding: 0.42rem 0;
-  transition: opacity 0.18s ease;
-  font-size: 0.94rem;
-  font-weight: 600;
-}
-
-.participant.off {
-  opacity: 0.38;
-}
-
-.check {
+  padding: 0.5rem 0.125rem;
+  border-radius: 10px;
+  border: 1px solid transparent;
   background: none;
-  border: none;
-  padding: 0;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--text-2);
   cursor: pointer;
+  min-width: 0;
+}
+
+.category span:last-child {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 359px) {
+  .categories {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.category.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.payer {
+  padding-left: 0.25rem;
+}
+
+.compact {
+  min-height: 52px;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.off {
+  opacity: 0.45;
+}
+
+.pct {
+  min-width: 3.5rem;
+  text-align: right;
 }
 
 .share {
-  font-weight: 700;
-  color: var(--ink-soft);
-  font-size: 0.9rem;
-  min-width: 68px;
+  font-weight: 600;
+  min-width: 5rem;
   text-align: right;
 }
 
-.coeff {
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: var(--lilas);
-  background: var(--lilas-soft);
-  padding: 0.2rem 0.5rem;
-  border-radius: var(--radius-full);
+.explain {
+  margin: 0.5rem 0.25rem 0;
 }
 
-.auto-hint {
-  margin-top: 0.3rem;
-  line-height: 1.45;
+.customize {
+  margin-top: 0.75rem;
 }
 
-.hint {
-  font-size: 0.82rem;
-  font-weight: 600;
-  text-align: center;
-  margin-top: 0.6rem;
+.modes {
+  margin-bottom: 0.75rem;
 }
 
-.weight {
+.tight {
+  gap: 0.25rem;
+}
+
+.checkbox {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1.5px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--on-accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  padding: 0;
+}
+
+.checkbox[aria-checked='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.stepper {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
-  font-weight: 700;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
 }
 
-.step {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.9);
-  color: var(--lilas);
-  font-weight: 700;
+.stepper button {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: var(--surface);
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
+}
+
+.stepper button:hover {
+  background: var(--surface-2);
+}
+
+.stepper span {
+  min-width: 2rem;
+  text-align: center;
+  font-weight: 600;
+  font-size: var(--fs-sm);
 }
 
 .exact {
-  width: 96px;
-  padding: 0.5rem 0.6rem;
+  width: 6.5rem;
+  min-height: 38px;
+  padding: 0.375rem 0.625rem;
   text-align: right;
-  font-size: 0.9rem;
-}
-
-.link {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-family: inherit;
-  font-weight: 700;
-  color: var(--lilas);
 }
 </style>

@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { CircleAlert } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/auth';
 import { useToastStore } from '@/stores/toast';
+import AuthShell from '@/components/AuthShell.vue';
 
 const auth = useAuthStore();
 const toast = useToastStore();
@@ -13,11 +15,14 @@ const email = ref('');
 const password = ref('');
 const error = ref('');
 
+const passwordOk = computed(() => password.value.length >= 8);
+const canSubmit = computed(() => name.value.trim().length >= 2 && email.value && passwordOk.value);
+
 async function submit() {
   error.value = '';
   try {
-    await auth.register(name.value, email.value, password.value);
-    toast.success(`Bienvenue ${name.value} ! ${auth.user?.emoji ?? '🦄'}`);
+    await auth.register(name.value.trim(), email.value.trim(), password.value);
+    toast.success(`Bienvenue, ${name.value.trim()}`);
     router.push('/');
   } catch (e) {
     error.value = (e as Error).message;
@@ -26,28 +31,22 @@ async function submit() {
 </script>
 
 <template>
-  <main class="page auth">
-    <div class="hero">
-      <span class="unicorn float">✨</span>
-      <h1>Créer ma licorne</h1>
-      <p class="muted">Un emoji et une couleur te seront attribués au hasard</p>
-    </div>
-
-    <form class="card stack" @submit.prevent="submit">
+  <AuthShell title="Créer un compte" subtitle="Un avatar licorne t'est attribué, tu pourras le changer ensuite.">
+    <form class="stack" novalidate @submit.prevent="submit">
       <div class="field">
         <label class="label" for="name">Prénom</label>
-        <input id="name" v-model="name" class="input" placeholder="Sophie" required minlength="2" />
+        <input id="name" v-model="name" class="input" autocomplete="given-name" required minlength="2" />
       </div>
 
       <div class="field">
-        <label class="label" for="email">Email</label>
+        <label class="label" for="email">Adresse e-mail</label>
         <input
           id="email"
           v-model="email"
           class="input"
           type="email"
           autocomplete="email"
-          placeholder="sophie@licorne.fr"
+          inputmode="email"
           required
         />
       </div>
@@ -60,49 +59,24 @@ async function submit() {
           class="input"
           type="password"
           autocomplete="new-password"
-          placeholder="8 caractères minimum"
+          aria-describedby="password-hint"
           required
           minlength="8"
         />
+        <p id="password-hint" class="hint" :class="{ positive: passwordOk }">8 caractères minimum</p>
       </div>
 
-      <p v-if="error" class="error-box">{{ error }}</p>
+      <p v-if="error" class="alert alert-error" role="alert">
+        <CircleAlert :size="16" :stroke-width="2" /> {{ error }}
+      </p>
 
-      <button class="btn btn-block" type="submit" :disabled="auth.loading">
-        {{ auth.loading ? 'Un instant…' : 'Rejoindre la prairie 🌈' }}
+      <button class="btn btn-block" type="submit" :disabled="auth.loading || !canSubmit">
+        {{ auth.loading ? 'Création…' : 'Créer mon compte' }}
       </button>
     </form>
 
-    <p class="center muted">
-      Déjà une licorne ?
-      <RouterLink to="/login">Se connecter</RouterLink>
-    </p>
-  </main>
+    <template #footer>
+      Déjà inscrit ? <RouterLink to="/login">Se connecter</RouterLink>
+    </template>
+  </AuthShell>
 </template>
-
-<style scoped>
-.auth {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  min-height: 100dvh;
-  gap: 1.4rem;
-}
-
-.hero {
-  text-align: center;
-}
-
-.unicorn {
-  font-size: 3.6rem;
-  display: block;
-}
-
-.hero h1 {
-  margin-top: 0.4rem;
-  background: var(--gradient-main);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-</style>

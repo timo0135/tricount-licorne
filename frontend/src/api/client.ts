@@ -36,13 +36,13 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       },
     });
   } catch {
-    throw new ApiError('Impossible de joindre la prairie (serveur injoignable)', 0);
+    throw new ApiError('Serveur injoignable. Vérifie ta connexion.', 0);
   }
 
   if (response.status === 401) {
     tokenStore.clear();
     onUnauthorized?.();
-    throw new ApiError('Session expirée, reconnecte-toi 🦄', 401);
+    throw new ApiError('Session expirée, reconnecte-toi.', 401);
   }
 
   if (response.status === 204) return undefined as T;
@@ -52,7 +52,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   if (!response.ok) {
     const message = Array.isArray(payload?.message)
       ? payload.message.join(', ')
-      : (payload?.message ?? 'Une licorne a fait tomber le serveur');
+      : (payload?.message ?? 'Une erreur est survenue. Réessaie dans un instant.');
     throw new ApiError(message, response.status);
   }
 

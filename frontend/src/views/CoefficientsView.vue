@@ -13,14 +13,18 @@ import {
   formatPercent,
   parseInputToBp,
 } from '@/utils/format';
+import { CircleAlert, Copy, Equal, RefreshCw, Wand2 } from 'lucide-vue-next';
+import { useConfirmStore } from '@/stores/confirm';
 import AppHeader from '@/components/AppHeader.vue';
 import UnicornAvatar from '@/components/UnicornAvatar.vue';
-import LoadingUnicorn from '@/components/LoadingUnicorn.vue';
+import CategoryIcon from '@/components/CategoryIcon.vue';
+import LoadingState from '@/components/LoadingState.vue';
 
 const props = defineProps<{ id: string }>();
 
 const store = useGroupsStore();
 const toast = useToastStore();
+const confirm = useConfirmStore();
 const router = useRouter();
 
 /** État local : catégorie → userId → saisie en pourcentage. */
@@ -107,7 +111,7 @@ function copyToAll() {
   const next = { ...draft.value };
   for (const category of categories.value) next[category] = { ...source };
   draft.value = next;
-  toast.success('Répartition copiée sur toutes les catégories ✨');
+  toast.success('Répartition copiée sur toutes les catégories');
 }
 
 async function save() {
@@ -130,7 +134,7 @@ async function save() {
   saving.value = true;
   try {
     await store.saveCoefficients(props.id, payload);
-    toast.success('Coefficients enregistrés ✨');
+    toast.success('Coefficients enregistrés');
   } catch (e) {
     error.value = (e as Error).message;
   } finally {
@@ -139,12 +143,18 @@ async function save() {
 }
 
 async function applyToExisting() {
-  if (!confirm('Recalculer les dépenses déjà saisies en mode automatique ?')) return;
+  const ok = await confirm.ask({
+    title: 'Recalculer les dépenses existantes ?',
+    message:
+      'Les dépenses en répartition automatique seront recalculées avec les coefficients actuels. Les répartitions personnalisées ne changent pas.',
+    confirmLabel: 'Recalculer',
+  });
+  if (!ok) return;
   applying.value = true;
   try {
     const res = await store.applyCoefficients(props.id);
     toast.success(
-      res.updated ? `${res.updated} dépense(s) recalculée(s) ✨` : 'Aucune dépense à recalculer',
+      res.updated ? `${res.updated} dépense(s) recalculée(s)` : 'Aucune dépense à recalculer',
     );
   } catch (e) {
     toast.error((e as Error).message);
@@ -156,168 +166,144 @@ async function applyToExisting() {
 
 <template>
   <main class="page">
-    <AppHeader title="Coefficients" subtitle="Qui paie quelle part, par thème" back />
+    <AppHeader title="Coefficients" subtitle="La part de chacun, par catégorie" back />
 
-    <LoadingUnicorn v-if="!ready" />
+    <LoadingState v-if="!ready" />
 
-    <template v-else>
-      <section class="card intro">
-        <p class="muted">
-          Chaque dépense est répartie automatiquement selon ces pourcentages. Un coefficient à
-          <strong>0 %</strong> exclut la licorne de la catégorie.
-        </p>
-      </section>
+    <div v-else class="stack">
+      <p class="alert alert-info">
+        Chaque dépense est répartie selon ces pourcentages. Un coefficient de 0 % exclut la
+        personne de la catégorie.
+      </p>
 
-      <div class="scroller cats">
+      <div class="scroller" role="tablist" aria-label="Catégories">
         <button
           v-for="c in categories"
           :key="c"
+          role="tab"
+          :aria-selected="active === c"
           class="chip"
           :class="{ active: active === c }"
           @click="active = c"
         >
-          {{ categoryMeta(c).emoji }} {{ categoryMeta(c).label }}
-          <span v-if="isCustom(c)" class="dot" :class="{ 'dot-on': active === c }" />
+          {{ categoryMeta(c).label }}
+          <span v-if="totalBp(c) !== TOTAL_BP" class="dot dot-error" aria-label="total incorrect" />
+          <span v-else-if="isCustom(c)" class="dot" aria-label="personnalisée" />
         </button>
       </div>
 
-      <section class="card">
-        <div class="between">
-          <h2>{{ categoryMeta(active).emoji }} {{ categoryMeta(active).label }}</h2>
-          <span class="pill" :class="isBalanced ? 'pill-positive' : 'pill-negative'">
-            {{ formatPercent(activeTotal) }}
+      <section class="list">
+        <div class="list-row head">
+          <CategoryIcon :category="active" :size="36" />
+          <h2 class="grow">{{ categoryMeta(active).label }}</h2>
+          <span class="badge num" :class="isBalanced ? 'badge-positive' : 'badge-negative'">
+            Total {{ formatPercent(activeTotal) }}
           </span>
         </div>
 
-        <div class="divider" />
-
-        <div v-for="m in members" :key="m.id" class="member">
-          <UnicornAvatar :emoji="m.emoji" :color="m.color" :size="38" />
+        <div v-for="m in members" :key="m.id" class="list-row">
+          <UnicornAvatar :emoji="m.emoji" :color="m.color" :size="36" />
           <div class="grow">
-            <p class="name truncate">{{ m.name }}</p>
-            <p class="faint">sur 100 € : {{ formatMoney(exampleFor(m.id), currency) }}</p>
+            <p class="list-title truncate">{{ m.name }}</p>
+            <p class="list-sub num">sur 100 € : {{ formatMoney(exampleFor(m.id), currency) }}</p>
           </div>
           <div class="pct">
             <input
               v-model="draft[active][m.id]"
-              class="input pct-input"
+              class="input pct-input num"
               inputmode="decimal"
-              aria-label="Pourcentage"
+              :aria-label="`Pourcentage de ${m.name} pour ${categoryMeta(active).label}`"
             />
             <span class="sign">%</span>
           </div>
         </div>
-
-        <div class="divider" />
-
-        <div class="actions">
-          <button class="btn btn-sm btn-ghost" @click="setEqual(active)">⚖️ Égaliser</button>
-          <button class="btn btn-sm btn-ghost" @click="autoAdjust(active)">🪄 Ajuster à 100 %</button>
-          <button class="btn btn-sm btn-ghost" @click="copyToAll">📋 Copier partout</button>
-        </div>
-
-        <p v-if="!isBalanced" class="hint negative">
-          Le total doit faire exactement 100 % (actuellement {{ formatPercent(activeTotal) }}).
-        </p>
       </section>
 
-      <p v-if="error" class="error-box">{{ error }}</p>
+      <div class="actions">
+        <button class="btn btn-secondary btn-sm" @click="setEqual(active)">
+          <Equal :size="16" :stroke-width="1.75" /> Égaliser
+        </button>
+        <button class="btn btn-secondary btn-sm" @click="autoAdjust(active)">
+          <Wand2 :size="16" :stroke-width="1.75" /> Ajuster à 100 %
+        </button>
+        <button class="btn btn-secondary btn-sm" @click="copyToAll">
+          <Copy :size="16" :stroke-width="1.75" /> Copier partout
+        </button>
+      </div>
 
-      <button class="btn btn-block" :disabled="saving || brokenCategories.length > 0" @click="save">
-        {{ saving ? 'Enregistrement…' : 'Enregistrer les coefficients ✨' }}
-      </button>
-
-      <button class="btn btn-ghost btn-block apply" :disabled="applying" @click="applyToExisting">
-        {{ applying ? 'Recalcul…' : '🔄 Recalculer les dépenses existantes' }}
-      </button>
-
-      <p class="faint center note">
-        Les dépenses déjà enregistrées gardent leur répartition d'origine, sauf si tu lances le
-        recalcul. Les licornes exclues d'une dépense précise le restent.
+      <p v-if="!isBalanced" class="alert alert-warning num">
+        Le total doit faire exactement 100 % (actuellement {{ formatPercent(activeTotal) }}).
       </p>
-    </template>
+
+      <p v-if="error" class="alert alert-error" role="alert">
+        <CircleAlert :size="16" :stroke-width="2" /> {{ error }}
+      </p>
+
+      <div class="stack-sm">
+        <button class="btn btn-block" :disabled="saving || brokenCategories.length > 0" @click="save">
+          {{ saving ? 'Enregistrement…' : 'Enregistrer les coefficients' }}
+        </button>
+        <button class="btn btn-secondary btn-block" :disabled="applying" @click="applyToExisting">
+          <RefreshCw :size="16" :stroke-width="1.75" />
+          {{ applying ? 'Recalcul…' : 'Recalculer les dépenses existantes' }}
+        </button>
+      </div>
+
+      <p class="hint center">
+        Les dépenses déjà saisies gardent leur répartition, sauf si tu lances le recalcul.
+      </p>
+    </div>
   </main>
 </template>
 
 <style scoped>
-.intro {
-  margin-bottom: 0.8rem;
-}
-
-.cats {
-  margin-bottom: 0.8rem;
-}
-
 .dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--lilas);
+  background: var(--accent);
   display: inline-block;
 }
 
-.dot-on {
-  background: #fff;
+.dot-error {
+  background: var(--negative);
 }
 
-.member {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  padding: 0.45rem 0;
-}
-
-.name {
-  font-weight: 700;
-  font-size: 0.94rem;
+.head h2 {
+  font-size: var(--fs-base);
 }
 
 .pct {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.375rem;
 }
 
 .pct-input {
-  width: 78px;
-  padding: 0.5rem 0.55rem;
+  width: 4.75rem;
+  min-height: 40px;
+  padding: 0.375rem 0.625rem;
   text-align: right;
-  font-weight: 700;
-  font-size: 0.92rem;
+  font-weight: 600;
 }
 
 .sign {
-  font-weight: 700;
-  color: var(--ink-soft);
-  font-size: 0.9rem;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
 }
 
 .actions {
-  display: flex;
-  gap: 0.4rem;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
 }
 
 .actions .btn {
-  flex: 1;
-  white-space: nowrap;
-  padding-left: 0.6rem;
-  padding-right: 0.6rem;
-}
-
-.hint {
-  margin-top: 0.7rem;
-  font-size: 0.82rem;
-  font-weight: 600;
+  padding: 0.5rem;
+  min-height: 44px;
+  font-size: var(--fs-xs);
+  white-space: normal;
+  line-height: 1.2;
   text-align: center;
-}
-
-.apply {
-  margin-top: 0.7rem;
-}
-
-.note {
-  margin-top: 0.8rem;
-  line-height: 1.5;
 }
 </style>

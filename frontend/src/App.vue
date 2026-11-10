@@ -2,6 +2,7 @@
 import { onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import ToastHost from '@/components/ToastHost.vue';
+import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import { setUnauthorizedHandler } from '@/api/client';
 import { useAuthStore } from '@/stores/auth';
 import { useGroupsStore } from '@/stores/groups';
@@ -21,21 +22,10 @@ onMounted(() => {
 
 <template>
   <ToastHost />
+  <ConfirmDialog />
   <RouterView v-slot="{ Component }">
-    <Transition name="fade" mode="out-in">
+    <Transition name="page" mode="out-in">
       <component :is="Component" />
     </Transition>
   </RouterView>
 </template>
-
-<style>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.18s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-</style>

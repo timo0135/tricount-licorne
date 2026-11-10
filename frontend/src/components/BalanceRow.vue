@@ -6,81 +6,73 @@ import UnicornAvatar from './UnicornAvatar.vue';
 
 const props = defineProps<{ balance: Balance; currency: string; max: number; isMe: boolean }>();
 
-const width = computed(() => {
-  if (props.max === 0) return 0;
-  return Math.min(100, (Math.abs(props.balance.balanceCents) / props.max) * 100);
-});
-
-const positive = computed(() => props.balance.balanceCents >= 0);
+const cents = computed(() => props.balance.balanceCents);
+const width = computed(() =>
+  props.max === 0 ? 0 : Math.min(100, (Math.abs(cents.value) / props.max) * 100),
+);
+const status = computed(() =>
+  cents.value > 0 ? 'à recevoir' : cents.value < 0 ? 'à rembourser' : 'à jour',
+);
 </script>
 
 <template>
-  <div class="balance">
-    <UnicornAvatar
-      :emoji="balance.user?.emoji"
-      :color="balance.user?.color"
-      :size="38"
-      :ring="isMe"
-    />
+  <div class="list-row">
+    <UnicornAvatar :emoji="balance.user?.emoji" :color="balance.user?.color" :size="36" />
     <div class="grow">
       <div class="between">
-        <span class="name truncate">{{ isMe ? 'Toi' : (balance.user?.name ?? 'Licorne') }}</span>
-        <span :class="positive ? 'positive' : 'negative'" class="amount">
-          {{ positive ? '+' : '' }}{{ formatMoney(balance.balanceCents, currency) }}
-        </span>
+        <p class="list-title truncate">{{ isMe ? 'Toi' : (balance.user?.name ?? 'Membre') }}</p>
+        <p
+          class="amount num"
+          :class="{ positive: cents > 0, negative: cents < 0 }"
+          :aria-label="`${formatMoney(Math.abs(cents), currency)} ${status}`"
+        >
+          {{ cents > 0 ? '+' : cents < 0 ? '−' : '' }}{{ formatMoney(Math.abs(cents), currency) }}
+        </p>
       </div>
-      <div class="track">
-        <div
-          class="fill"
-          :class="positive ? 'fill-positive' : 'fill-negative'"
-          :style="{ width: `${width}%` }"
-        />
+      <div class="between">
+        <p class="list-sub num truncate">
+          a payé {{ formatMoney(balance.paidCents, currency) }} · part
+          {{ formatMoney(balance.owedCents, currency) }}
+        </p>
+        <p class="list-sub status">{{ status }}</p>
       </div>
-      <p class="faint">
-        a avancé {{ formatMoney(balance.paidCents, currency) }} · doit
-        {{ formatMoney(balance.owedCents, currency) }}
-      </p>
+      <div class="track" aria-hidden="true">
+        <div class="fill" :class="cents >= 0 ? 'up' : 'down'" :style="{ width: `${width}%` }" />
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.balance {
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-  padding: 0.55rem 0;
-}
-
-.name {
-  font-weight: 700;
-  font-size: 0.94rem;
-}
-
 .amount {
-  font-weight: 700;
-  font-size: 0.94rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.status {
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .track {
-  height: 7px;
+  height: 4px;
   border-radius: var(--radius-full);
-  background: rgba(185, 140, 245, 0.12);
+  background: var(--surface-2);
+  margin-top: 0.5rem;
   overflow: hidden;
-  margin: 0.32rem 0 0.22rem;
 }
 
 .fill {
   height: 100%;
-  border-radius: var(--radius-full);
-  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: inherit;
+  transition: width 0.4s ease;
 }
 
-.fill-positive {
-  background: linear-gradient(90deg, #7fe3cd, #2bb392);
+.fill.up {
+  background: var(--positive);
 }
 
-.fill-negative {
-  background: linear-gradient(90deg, #ffb3c8, #f2668b);
+.fill.down {
+  background: var(--negative);
 }
 </style>

@@ -1,22 +1,30 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
+/** Avatar d'un membre : son emoji sur sa couleur, à plat. */
 const props = withDefaults(
-  defineProps<{ emoji?: string; color?: string; size?: number; ring?: boolean }>(),
-  { emoji: '🦄', color: '#C9A7F5', size: 40, ring: false },
+  defineProps<{ emoji?: string; color?: string; size?: number; ring?: boolean; label?: string }>(),
+  { emoji: '🦄', color: '#c9a7f5', size: 40, ring: false, label: undefined },
 );
 
 const style = computed(() => ({
   width: `${props.size}px`,
   height: `${props.size}px`,
-  fontSize: `${props.size * 0.5}px`,
-  background: `linear-gradient(135deg, ${props.color}, ${props.color}88)`,
-  boxShadow: props.ring ? `0 0 0 3px #fff, 0 4px 12px ${props.color}66` : `0 4px 12px ${props.color}55`,
+  fontSize: `${Math.round(props.size * 0.5)}px`,
+  background: props.color,
 }));
 </script>
 
 <template>
-  <span class="avatar" :style="style">{{ emoji }}</span>
+  <span
+    class="avatar"
+    :class="{ ring }"
+    :style="style"
+    :role="label ? 'img' : undefined"
+    :aria-label="label"
+    :aria-hidden="label ? undefined : 'true'"
+    >{{ emoji }}</span
+  >
 </template>
 
 <style scoped>
@@ -28,5 +36,12 @@ const style = computed(() => ({
   flex-shrink: 0;
   line-height: 1;
   user-select: none;
+  box-shadow: inset 0 0 0 1px rgba(28, 25, 23, 0.06);
+}
+
+.ring {
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 4px var(--accent);
 }
 </style>

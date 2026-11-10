@@ -1,3 +1,17 @@
+import type { Component } from 'vue';
+import {
+  Car,
+  CupSoda,
+  HeartPulse,
+  House,
+  Shapes,
+  ShoppingBag,
+  ShoppingCart,
+  Sparkles,
+  Ticket,
+  Utensils,
+} from 'lucide-vue-next';
+
 /** Helpers d'affichage : montants, dates, catégories. */
 
 export const formatMoney = (cents: number, currency = 'EUR'): string =>
@@ -39,28 +53,71 @@ export const formatDate = (iso: string): string =>
   new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
 
 export const formatDateShort = (iso: string): string =>
-  new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+  new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+
+/** Libellé de regroupement par jour : « Aujourd'hui », « Hier » ou la date. */
+export const dayLabel = (iso: string): string => {
+  const d = new Date(iso);
+  const today = new Date();
+  const startOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((startOf(today) - startOf(d)) / 86_400_000);
+  if (diff === 0) return "Aujourd'hui";
+  if (diff === 1) return 'Hier';
+  return d.toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    ...(d.getFullYear() !== today.getFullYear() ? { year: 'numeric' } : {}),
+  });
+};
 
 export const toDateInput = (iso: string): string => new Date(iso).toISOString().slice(0, 10);
 
-export const CATEGORY_META: Record<string, { label: string; emoji: string; color: string }> = {
-  nourriture: { label: 'Nourriture', emoji: '🍽️', color: '#ffc48f' },
-  boissons: { label: 'Boissons', emoji: '🥤', color: '#8fc4ff' },
-  logement: { label: 'Logement', emoji: '🏰', color: '#b98cf5' },
-  transport: { label: 'Transport', emoji: '🚗', color: '#7fe3cd' },
-  sorties: { label: 'Sorties', emoji: '🎪', color: '#ff9ecf' },
-  courses: { label: 'Courses', emoji: '🛒', color: '#a8e06a' },
-  shopping: { label: 'Shopping', emoji: '🛍️', color: '#f5a2e0' },
-  sante: { label: 'Santé', emoji: '💊', color: '#ff9aa9' },
-  paillettes: { label: 'Paillettes', emoji: '✨', color: '#ffd76a' },
-  autre: { label: 'Autre', emoji: '🦄', color: '#c9a7f5' },
+/** Catégories : libellé, icône et teinte (utilisée en fond très léger). */
+export interface CategoryMeta {
+  label: string;
+  icon: Component;
+  color: string;
+}
+
+export const CATEGORY_META: Record<string, CategoryMeta> = {
+  nourriture: { label: 'Nourriture', icon: Utensils, color: '#c2410c' },
+  boissons: { label: 'Boissons', icon: CupSoda, color: '#0369a1' },
+  logement: { label: 'Logement', icon: House, color: '#6d28d9' },
+  transport: { label: 'Transport', icon: Car, color: '#0f766e' },
+  sorties: { label: 'Sorties', icon: Ticket, color: '#be185d' },
+  courses: { label: 'Courses', icon: ShoppingCart, color: '#4d7c0f' },
+  shopping: { label: 'Shopping', icon: ShoppingBag, color: '#a21caf' },
+  sante: { label: 'Santé', icon: HeartPulse, color: '#b91c1c' },
+  paillettes: { label: 'Paillettes', icon: Sparkles, color: '#a16207' },
+  autre: { label: 'Autre', icon: Shapes, color: '#57534e' },
 };
 
-export const categoryMeta = (key: string) => CATEGORY_META[key] ?? CATEGORY_META.autre;
+export const categoryMeta = (key: string): CategoryMeta => CATEGORY_META[key] ?? CATEGORY_META.autre;
 
-export const GRADIENT_KEYS = ['aurora', 'candy', 'lagoon', 'sunset', 'meadow', 'cosmos'] as const;
+/**
+ * Couleur d'un troupeau. Le champ `gradient` est conservé en base pour la
+ * compatibilité, mais il désigne désormais une teinte unie.
+ */
+export const GROUP_TINTS: Record<string, { label: string; color: string }> = {
+  aurora: { label: 'Violet', color: '#6d28d9' },
+  candy: { label: 'Rose', color: '#db2777' },
+  lagoon: { label: 'Bleu lagon', color: '#0e7490' },
+  sunset: { label: 'Orange', color: '#ea580c' },
+  meadow: { label: 'Vert', color: '#15803d' },
+  cosmos: { label: 'Indigo', color: '#4338ca' },
+};
 
-export const gradientStyle = (key: string): string =>
-  `var(--gradient-${GRADIENT_KEYS.includes(key as never) ? key : 'aurora'})`;
+export const GRADIENT_KEYS = Object.keys(GROUP_TINTS);
 
-export const GROUP_EMOJIS = ['🦄', '🌈', '✨', '🏰', '🌲', '🏖️', '🎂', '🏠', '🎿', '🍭', '🎪', '🧁'];
+export const groupTint = (key: string): string => (GROUP_TINTS[key] ?? GROUP_TINTS.aurora).color;
+
+export const GROUP_EMOJIS = ['🦄', '🌈', '🏠', '🏖️', '🏔️', '🎿', '🚐', '🎂', '🍕', '🎉', '⛺', '✈️'];
+
+/** Fond teinté léger, lisible en mode clair comme en mode sombre. */
+export const tintBg = (color: string, percent = 14): string =>
+  `color-mix(in srgb, ${color} ${percent}%, transparent)`;
+
+/** « Toi » pour l'utilisateur courant, sinon le prénom. */
+export const displayName = (user: { id: string; name: string } | undefined, meId: string): string =>
+  !user ? 'Membre' : user.id === meId ? 'Toi' : user.name;
