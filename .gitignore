@@ -9,3 +9,4 @@ _backups/
 coverage/
 /backend/uploads/
 .env.production
+!.env.production.example
