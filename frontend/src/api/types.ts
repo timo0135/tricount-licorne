@@ -163,6 +163,17 @@ export interface TwoFactorSetup {
   secret: string;
 }
 
+/** Passkey enregistrée (Face ID, Touch ID…). */
+export interface Passkey {
+  id: string;
+  name: string;
+  deviceType: 'singleDevice' | 'multiDevice' | string;
+  /** Synchronisée (ex. trousseau iCloud) : disponible sur tes autres appareils. */
+  backedUp: boolean;
+  createdAt: string;
+  lastUsedAt: string | null;
+}
+
 export interface TwoFactorStatus {
   enabled: boolean;
   remainingRecoveryCodes: number;

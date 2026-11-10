@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import { authApi } from '@/api';
 import { refreshSession, tokenStore } from '@/api/client';
 import type { User } from '@/api/types';
+import { signInWithPasskey } from '@/utils/passkeys';
 
 const USER_CACHE_KEY = 'lt.user';
 const API_CACHE = 'lt-api';
@@ -87,6 +88,14 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  /** Connexion avec une passkey (Face ID, Touch ID) ; `autofill` : proposée dans le clavier. */
+  async function loginWithPasskey(autofill = false) {
+    const res = await signInWithPasskey(autofill);
+    challengeToken.value = null;
+    tokenStore.set(res.accessToken);
+    setUser(res.user);
+  }
+
   /** Deuxième étape : code à 6 chiffres ou code de secours. */
   async function verifyTwoFactor(code: string) {
     if (!challengeToken.value) throw new Error('Reconnecte-toi avec ton mot de passe.');
@@ -162,6 +171,7 @@ export const useAuthStore = defineStore('auth', () => {
     restore,
     login,
     verifyTwoFactor,
+    loginWithPasskey,
     cancelTwoFactor,
     setTwoFactorEnabled,
     challengeToken,

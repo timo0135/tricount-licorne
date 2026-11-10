@@ -2,15 +2,21 @@
 import { computed, nextTick, onMounted, ref } from 'vue';
 import {
   CircleAlert,
+  Cloud,
   Copy,
   Download,
+  Fingerprint,
   KeyRound,
+  Trash2,
   ShieldCheck,
   ShieldOff,
   Smartphone,
 } from 'lucide-vue-next';
-import { twoFactorApi } from '@/api';
-import type { TwoFactorSetup, TwoFactorStatus } from '@/api/types';
+import { passkeysApi, twoFactorApi } from '@/api';
+import type { Passkey, TwoFactorSetup, TwoFactorStatus } from '@/api/types';
+import { createPasskey, passkeyErrorMessage, passkeysSupported } from '@/utils/passkeys';
+import { useConfirmStore } from '@/stores/confirm';
+import { formatDate } from '@/utils/format';
 import { useAuthStore } from '@/stores/auth';
 import { useToastStore } from '@/stores/toast';
 import AppHeader from '@/components/AppHeader.vue';
@@ -18,6 +24,48 @@ import LoadingState from '@/components/LoadingState.vue';
 
 const auth = useAuthStore();
 const toast = useToastStore();
+const confirm = useConfirmStore();
+
+// ---------- Passkeys ----------
+const canUsePasskey = passkeysSupported();
+const passkeys = ref<Passkey[] | null>(null);
+const addingPasskey = ref(false);
+
+async function loadPasskeys() {
+  passkeys.value = await passkeysApi.list();
+}
+
+async function addPasskey() {
+  addingPasskey.value = true;
+  try {
+    const created = await createPasskey();
+    await loadPasskeys();
+    toast.success(`Passkey ajoutée : ${created.name}`);
+  } catch (e) {
+    const message = passkeyErrorMessage(e);
+    if (message) toast.error(message);
+  } finally {
+    addingPasskey.value = false;
+  }
+}
+
+async function removePasskey(passkey: Passkey) {
+  const ok = await confirm.ask({
+    title: `Supprimer la passkey « ${passkey.name} » ?`,
+    message:
+      'Cet appareil ne pourra plus te connecter avec Face ID ou Touch ID. Pense aussi à la supprimer du trousseau de l’appareil.',
+    confirmLabel: 'Supprimer',
+    danger: true,
+  });
+  if (!ok) return;
+  try {
+    await passkeysApi.remove(passkey.id);
+    await loadPasskeys();
+    toast.success('Passkey supprimée');
+  } catch (e) {
+    toast.error((e as Error).message);
+  }
+}
 
 type Step = 'status' | 'setup' | 'codes' | 'disable' | 'regenerate';
 const step = ref<Step>('status');
@@ -37,7 +85,9 @@ async function loadStatus() {
   auth.setTwoFactorEnabled(status.value.enabled);
 }
 
-onMounted(() => loadStatus().catch((e) => toast.error((e as Error).message)));
+onMounted(() =>
+  Promise.all([loadStatus(), loadPasskeys()]).catch((e) => toast.error((e as Error).message)),
+);
 
 function reset(next: Step) {
   step.value = next;
@@ -136,6 +186,43 @@ function finishCodes() {
 
     <!-- État -->
     <div v-else-if="step === 'status'" class="stack">
+      <section>
+        <h2 class="section-title">Passkeys</h2>
+        <p class="muted explain section-intro">
+          Connecte-toi avec Face ID, Touch ID ou le code de ton appareil, sans mot de passe. Une
+          passkey vaut à elle seule une double authentification.
+        </p>
+        <div v-if="passkeys?.length" class="list">
+          <div v-for="p in passkeys" :key="p.id" class="list-row">
+            <Fingerprint :size="20" :stroke-width="1.75" class="faint" />
+            <div class="grow">
+              <p class="list-title truncate">{{ p.name }}</p>
+              <p class="list-sub truncate">
+                Ajoutée le {{ formatDate(p.createdAt) }}
+                <template v-if="p.lastUsedAt"> · utilisée le {{ formatDate(p.lastUsedAt) }}</template>
+              </p>
+            </div>
+            <span v-if="p.backedUp" class="badge" title="Synchronisée sur tes autres appareils">
+              <Cloud :size="12" :stroke-width="2" /> Synchronisée
+            </span>
+            <button class="icon-btn" :aria-label="`Supprimer ${p.name}`" @click="removePasskey(p)">
+              <Trash2 :size="18" :stroke-width="1.75" />
+            </button>
+          </div>
+        </div>
+        <button
+          v-if="canUsePasskey"
+          class="btn btn-secondary btn-block add-passkey"
+          :disabled="addingPasskey"
+          @click="addPasskey"
+        >
+          <Fingerprint :size="18" :stroke-width="1.75" />
+          {{ addingPasskey ? 'En attente de l’appareil…' : 'Ajouter une passkey sur cet appareil' }}
+        </button>
+        <p v-else class="alert alert-info">Ce navigateur ne prend pas en charge les passkeys.</p>
+      </section>
+
+      <h2 class="section-title">Codes à usage unique</h2>
       <section class="card state">
         <span class="tile" :class="{ on: enabled }">
           <component :is="enabled ? ShieldCheck : ShieldOff" :size="22" :stroke-width="1.75" />
@@ -356,6 +443,14 @@ function finishCodes() {
 
 .explain {
   line-height: 1.5;
+}
+
+.section-intro {
+  margin: 0 0.25rem 0.75rem;
+}
+
+.add-passkey {
+  margin-top: 0.75rem;
 }
 
 .steps {

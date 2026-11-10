@@ -156,8 +156,10 @@ async function logout() {
       <RouterLink to="/profile/security" class="list-row">
         <ShieldCheck :size="20" :stroke-width="1.75" class="faint" />
         <div class="grow">
-          <p class="list-title">Double authentification</p>
-          <p class="list-sub">{{ auth.user?.twoFactorEnabled ? 'Activée' : 'Désactivée' }}</p>
+          <p class="list-title">Passkeys et double authentification</p>
+          <p class="list-sub">
+            Face ID, Touch ID · codes {{ auth.user?.twoFactorEnabled ? 'activés' : 'désactivés' }}
+          </p>
         </div>
         <ChevronRight class="chevron" :size="18" />
       </RouterLink>

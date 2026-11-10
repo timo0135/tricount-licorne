@@ -1,9 +1,15 @@
 <script setup lang="ts">
-import { nextTick, ref } from 'vue';
+import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { CircleAlert, ShieldCheck } from 'lucide-vue-next';
+import { CircleAlert, Fingerprint, ShieldCheck } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/auth';
 import AuthShell from '@/components/AuthShell.vue';
+import {
+  cancelPasskeyCeremony,
+  passkeyAutofillSupported,
+  passkeyErrorMessage,
+  passkeysSupported,
+} from '@/utils/passkeys';
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -18,6 +24,38 @@ const error = ref('');
 const codeInput = ref<HTMLInputElement | null>(null);
 
 const done = () => router.push((route.query.redirect as string) ?? '/');
+
+const canUsePasskey = passkeysSupported();
+const passkeyBusy = ref(false);
+
+/** Bouton « Face ID / Touch ID ». */
+async function passkeyLogin() {
+  error.value = '';
+  passkeyBusy.value = true;
+  try {
+    await auth.loginWithPasskey();
+    done();
+  } catch (e) {
+    const message = passkeyErrorMessage(e);
+    if (message) error.value = message;
+  } finally {
+    passkeyBusy.value = false;
+  }
+}
+
+/** Suggestion de passkey dans le clavier ou sous le champ e-mail, sans clic. */
+onMounted(async () => {
+  if (!canUsePasskey || !(await passkeyAutofillSupported())) return;
+  try {
+    await auth.loginWithPasskey(true);
+    done();
+  } catch (e) {
+    const message = passkeyErrorMessage(e);
+    if (message && step.value === 'password') error.value = message;
+  }
+});
+
+onBeforeUnmount(() => cancelPasskeyCeremony());
 
 async function submit() {
   error.value = '';
@@ -77,7 +115,7 @@ function back() {
           v-model="email"
           class="input"
           type="email"
-          autocomplete="email"
+          autocomplete="username webauthn"
           inputmode="email"
           required
         />
@@ -102,6 +140,19 @@ function back() {
       <button class="btn btn-block" type="submit" :disabled="auth.loading || !email || !password">
         {{ auth.loading ? 'Connexion…' : 'Se connecter' }}
       </button>
+
+      <template v-if="canUsePasskey">
+        <div class="or" aria-hidden="true"><span>ou</span></div>
+        <button
+          type="button"
+          class="btn btn-secondary btn-block"
+          :disabled="passkeyBusy"
+          @click="passkeyLogin"
+        >
+          <Fingerprint :size="18" :stroke-width="1.75" />
+          {{ passkeyBusy ? 'En attente…' : 'Se connecter avec Face ID ou Touch ID' }}
+        </button>
+      </template>
     </form>
 
     <template #footer>
@@ -168,6 +219,22 @@ function back() {
 </template>
 
 <style scoped>
+.or {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
+.or::before,
+.or::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
 .code {
   font-family: ui-monospace, 'SF Mono', Menlo, monospace;
   font-size: 1.25rem;

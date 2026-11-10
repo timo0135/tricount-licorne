@@ -16,6 +16,8 @@ API **NestJS + Prisma + PostgreSQL**, front **Vue 3 + Vite + TypeScript**, le to
 
 - **Comptes** : inscription, connexion, session de 30 jours renouvelée automatiquement, profil
   (photo, ou avatar licorne et couleur).
+- **Passkeys** (Profil → Sécurité) : connexion avec Face ID, Touch ID ou le code de l'appareil,
+  sans mot de passe ; proposée directement dans le clavier sur iPhone.
 - **Double authentification** facultative (Profil → Sécurité) : codes TOTP à 6 chiffres
   (Mots de passe d'iPhone, Google Authenticator, 1Password…) et 10 codes de secours.
 - **Troupeaux** (groupes) : création, code d'invitation à partager, membres, rôles créateur et membre,
@@ -100,9 +102,9 @@ L'installation exige une adresse **HTTPS** : elle sera possible une fois l'appli
 cd backend && npm test
 ```
 
-65 tests unitaires : répartition au centime près, soldes et simplification des dettes,
+74 tests unitaires : répartition au centime près, soldes et simplification des dettes,
 normalisation des coefficients, familles (entités), traitement des photos, validation de la
-configuration, rotation des sessions, double authentification.
+configuration, rotation des sessions, double authentification, passkeys.
 
 ## Sécurité
 
@@ -113,6 +115,9 @@ configuration, rotation des sessions, double authentification.
 - Double authentification TOTP : secret chiffré en base (AES-256-GCM, clé `ENCRYPTION_KEY`),
   chaque code accepté une seule fois, codes de secours hachés et à usage unique, deuxième étape
   limitée à 5 essais par minute. Ne jamais changer `ENCRYPTION_KEY` une fois en production.
+- Passkeys (WebAuthn) : seule la clé publique est stockée, vérification de l'utilisateur exigée,
+  défis à usage unique. Elles sont liées au domaine (`WEBAUTHN_RP_ID`) : celles créées sur
+  `localhost` ne fonctionnent pas en production, et inversement.
 - Limitation de débit : 120 requêtes par minute, 10 par minute sur la connexion et l'inscription.
 - En-têtes de sécurité (helmet côté API, CSP et compagnie côté nginx), corps de requête limités.
 - Configuration validée au démarrage : l'API refuse un secret JWT faible en production.
@@ -130,7 +135,7 @@ licorne-tricount/
 │   ├── Dockerfile, docker-entrypoint.sh   # migrations puis démarrage
 │   ├── prisma/
 │   │   ├── schema.prisma
-│   │   ├── migrations/                    # 0_init … 3_two_factor
+│   │   ├── migrations/                    # 0_init … 4_passkeys
 │   │   └── seed.ts
 │   └── src/
 │       ├── config/          # validation des variables d'environnement
@@ -163,6 +168,9 @@ le renouvellement de session, la déconnexion et la sonde de santé.
 | POST | `/auth/login/2fa` | Deuxième étape de connexion (code ou code de secours) |
 | POST | `/auth/refresh`, `/auth/logout` | Renouveler ou fermer la session (cookie) |
 | GET | `/auth/2fa` | État de la double authentification |
+| GET / PATCH / DELETE | `/auth/passkeys`, `/auth/passkeys/:id` | Lister, renommer, supprimer ses passkeys |
+| POST | `/auth/passkeys/register/options`, `/auth/passkeys/register` | Enregistrer une passkey |
+| POST | `/auth/passkeys/login/options`, `/auth/passkeys/login` | Se connecter avec une passkey |
 | POST | `/auth/2fa/setup`, `/auth/2fa/enable`, `/auth/2fa/disable`, `/auth/2fa/recovery-codes` | Activer, désactiver, renouveler les codes de secours |
 | GET | `/auth/me` | Utilisateur connecté |
 | PATCH | `/users/me` | Modifier nom, avatar, couleur |

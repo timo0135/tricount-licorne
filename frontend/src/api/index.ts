@@ -1,5 +1,11 @@
 import { api } from './client';
 import type {
+  AuthenticationResponseJSON,
+  PublicKeyCredentialCreationOptionsJSON,
+  PublicKeyCredentialRequestOptionsJSON,
+  RegistrationResponseJSON,
+} from '@simplewebauthn/browser';
+import type {
   AuthResponse,
   BalanceSummary,
   CategoryCoefficients,
@@ -7,6 +13,7 @@ import type {
   CategoryStat,
   Expense,
   ExpensePayload,
+  Passkey,
   Group,
   Settlement,
   TwoFactorChallenge,
@@ -38,6 +45,20 @@ export const twoFactorApi = {
     api.post<{ disabled: boolean }>('/auth/2fa/disable', { password, code }),
   regenerateRecoveryCodes: (code: string) =>
     api.post<{ recoveryCodes: string[] }>('/auth/2fa/recovery-codes', { code }),
+};
+
+export const passkeysApi = {
+  list: () => api.get<Passkey[]>('/auth/passkeys'),
+  registrationOptions: () =>
+    api.post<PublicKeyCredentialCreationOptionsJSON>('/auth/passkeys/register/options'),
+  register: (response: RegistrationResponseJSON) =>
+    api.post<Passkey>('/auth/passkeys/register', { response }),
+  rename: (id: string, name: string) => api.patch<Passkey>(`/auth/passkeys/${id}`, { name }),
+  remove: (id: string) => api.delete<{ deleted: boolean }>(`/auth/passkeys/${id}`),
+  loginOptions: () =>
+    api.post<PublicKeyCredentialRequestOptionsJSON>('/auth/passkeys/login/options'),
+  login: (response: AuthenticationResponseJSON) =>
+    api.post<AuthResponse>('/auth/passkeys/login', { response }),
 };
 
 export const groupsApi = {
