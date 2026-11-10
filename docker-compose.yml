@@ -28,6 +28,7 @@ services:
       NODE_ENV: development
       DATABASE_URL: postgresql://licorne:licorne@db:5432/licorne_tricount?schema=public
       JWT_SECRET: dev-uniquement-a-remplacer
+      ENCRYPTION_KEY: dev-uniquement-cle-de-chiffrement
       JWT_EXPIRES_IN: 15m
       REFRESH_TOKEN_DAYS: 30
       PORT: 3000

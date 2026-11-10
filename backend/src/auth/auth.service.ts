@@ -9,6 +9,7 @@ import { LoginDto } from './dto/login.dto';
 import { randomColor, randomEmoji } from '../common/unicorn';
 import type { AppEnv } from '../config/env.validation';
 import { REFRESH_GRACE_MS } from './auth.constants';
+import { TwoFactorService } from './two-factor.service';
 
 const PUBLIC_USER = {
   id: true,
@@ -17,6 +18,7 @@ const PUBLIC_USER = {
   emoji: true,
   color: true,
   avatarUrl: true,
+  totpEnabledAt: true,
   createdAt: true,
 } as const;
 
@@ -27,15 +29,32 @@ export interface SessionMeta {
   userAgent?: string;
 }
 
-type PublicUser = {
+type UserRow = {
   id: string;
   email: string;
   name: string;
   emoji: string;
   color: string;
   avatarUrl: string | null;
+  totpEnabledAt: Date | null;
   createdAt: Date;
 };
+
+export type PublicUser = Omit<UserRow, 'totpEnabledAt'> & { twoFactorEnabled: boolean };
+
+/** Profil renvoyé à l'utilisateur lui-même : jamais de secret, juste l'état de la 2FA. */
+export const toPublicUser = ({ totpEnabledAt, ...user }: UserRow): PublicUser => ({
+  ...user,
+  twoFactorEnabled: Boolean(totpEnabledAt),
+});
+
+/** Étape intermédiaire quand la double authentification est activée. */
+export interface TwoFactorChallenge {
+  twoFactorRequired: true;
+  challengeToken: string;
+}
+
+const CHALLENGE_PURPOSE = '2fa';
 
 export interface IssuedSession {
   user: PublicUser;
@@ -52,6 +71,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwt: JwtService,
     private config: ConfigService<AppEnv, true>,
+    private twoFactor: TwoFactorService,
   ) {}
 
   async register(dto: RegisterDto, meta: SessionMeta = {}): Promise<IssuedSession> {
@@ -70,10 +90,10 @@ export class AuthService {
       select: PUBLIC_USER,
     });
 
-    return this.issue(user, meta);
+    return this.issue(toPublicUser(user), meta);
   }
 
-  async login(dto: LoginDto, meta: SessionMeta = {}): Promise<IssuedSession> {
+  async login(dto: LoginDto, meta: SessionMeta = {}): Promise<IssuedSession | TwoFactorChallenge> {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase().trim() },
     });
@@ -81,8 +101,35 @@ export class AuthService {
       throw new UnauthorizedException('Adresse e-mail ou mot de passe incorrect.');
     }
 
-    const { password: _password, updatedAt: _updatedAt, ...safe } = user;
-    return this.issue(safe, meta);
+    if (user.totpEnabledAt) {
+      // Mot de passe correct, mais la session n'est ouverte qu'après le code (5 minutes pour le saisir).
+      const challengeToken = this.jwt.sign(
+        { sub: user.id, purpose: CHALLENGE_PURPOSE },
+        { expiresIn: '5m' },
+      );
+      return { twoFactorRequired: true, challengeToken };
+    }
+
+    return this.issue(toPublicUser(user), meta);
+  }
+
+  /** Deuxième étape de la connexion : code à 6 chiffres ou code de secours. */
+  async completeTwoFactor(challengeToken: string, code: string, meta: SessionMeta = {}) {
+    let userId: string;
+    try {
+      const payload = this.jwt.verify<{ sub: string; purpose?: string }>(challengeToken);
+      if (payload.purpose !== CHALLENGE_PURPOSE) throw new Error('mauvais usage');
+      userId = payload.sub;
+    } catch {
+      throw new UnauthorizedException('Étape expirée, reconnecte-toi avec ton mot de passe.');
+    }
+
+    if (!(await this.twoFactor.verify(userId, code))) {
+      throw new UnauthorizedException('Code incorrect ou expiré.');
+    }
+
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: PUBLIC_USER });
+    return this.issue(toPublicUser(user), meta);
   }
 
   /** Échange un jeton de rafraîchissement contre une nouvelle session (rotation). */
@@ -111,7 +158,7 @@ export class AuthService {
       });
     }
 
-    return this.issue(stored.user, meta);
+    return this.issue(toPublicUser(stored.user), meta);
   }
 
   async logout(rawToken: string | undefined) {
@@ -130,7 +177,8 @@ export class AuthService {
   }
 
   async me(userId: string) {
-    return this.prisma.user.findUnique({ where: { id: userId }, select: PUBLIC_USER });
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: PUBLIC_USER });
+    return toPublicUser(user);
   }
 
   private async issue(user: PublicUser, meta: SessionMeta): Promise<IssuedSession> {

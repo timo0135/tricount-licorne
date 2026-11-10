@@ -4,6 +4,8 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { AuthService, IssuedSession } from './auth.service';
+import { TwoFactorService } from './two-factor.service';
+import { DisableTwoFactorDto, TwoFactorCodeDto, TwoFactorLoginDto } from './dto/two-factor.dto';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { Public } from './decorators/public.decorator';
@@ -20,6 +22,7 @@ export class AuthController {
   constructor(
     private readonly auth: AuthService,
     private readonly config: ConfigService<AppEnv, true>,
+    private readonly twoFactor: TwoFactorService,
   ) {}
 
   @Public()
@@ -40,7 +43,74 @@ export class AuthController {
   @HttpCode(200)
   @ApiOperation({ summary: 'Se connecter' })
   async login(@Body() dto: LoginDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    return this.respond(res, await this.auth.login(dto, this.meta(req)));
+    const result = await this.auth.login(dto, this.meta(req));
+    // Double authentification activée : pas de session avant le code.
+    if ('twoFactorRequired' in result) return result;
+    return this.respond(res, result);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post('login/2fa')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Deuxième étape de connexion : code à 6 chiffres ou code de secours' })
+  async loginTwoFactor(
+    @Body() dto: TwoFactorLoginDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    return this.respond(
+      res,
+      await this.auth.completeTwoFactor(dto.challengeToken, dto.code, this.meta(req)),
+    );
+  }
+
+  @Get('2fa')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'État de la double authentification' })
+  async twoFactorStatus(@CurrentUser() user: AuthUser) {
+    const me = await this.auth.me(user.id);
+    return {
+      enabled: me.twoFactorEnabled,
+      remainingRecoveryCodes: me.twoFactorEnabled
+        ? await this.twoFactor.remainingRecoveryCodes(user.id)
+        : 0,
+    };
+  }
+
+  @Post('2fa/setup')
+  @HttpCode(200)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Préparer l’activation : QR code à scanner' })
+  setupTwoFactor(@CurrentUser() user: AuthUser) {
+    return this.twoFactor.setup(user.id);
+  }
+
+  @Post('2fa/enable')
+  @HttpCode(200)
+  @Throttle(STRICT)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Activer avec un premier code ; renvoie les codes de secours' })
+  enableTwoFactor(@CurrentUser() user: AuthUser, @Body() dto: TwoFactorCodeDto) {
+    return this.twoFactor.enable(user.id, dto.code);
+  }
+
+  @Post('2fa/disable')
+  @HttpCode(200)
+  @Throttle(STRICT)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Désactiver (mot de passe et code exigés)' })
+  disableTwoFactor(@CurrentUser() user: AuthUser, @Body() dto: DisableTwoFactorDto) {
+    return this.twoFactor.disable(user.id, dto.password, dto.code);
+  }
+
+  @Post('2fa/recovery-codes')
+  @HttpCode(200)
+  @Throttle(STRICT)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Générer de nouveaux codes de secours (les anciens deviennent invalides)' })
+  regenerateRecoveryCodes(@CurrentUser() user: AuthUser, @Body() dto: TwoFactorCodeDto) {
+    return this.twoFactor.regenerateRecoveryCodes(user.id, dto.code);
   }
 
   @Public()

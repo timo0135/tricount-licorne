@@ -16,7 +16,7 @@ function setup(stored: unknown) {
   };
   const jwt = { sign: jest.fn().mockReturnValue('access-token') };
   const config = { get: jest.fn().mockReturnValue(30) };
-  const service = new AuthService(prisma as never, jwt as never, config as never);
+  const service = new AuthService(prisma as never, jwt as never, config as never, {} as never);
   return { service, prisma };
 }
 

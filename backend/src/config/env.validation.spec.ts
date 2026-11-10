@@ -22,8 +22,21 @@ describe('validateEnv', () => {
     ).toThrow(/32 caractères/);
   });
 
-  it('accepte un secret solide en production et active les cookies sécurisés', () => {
-    const env = validateEnv({ ...base, NODE_ENV: 'production', JWT_SECRET: 'x7Gq9'.repeat(8) });
+  it('exige une clé de chiffrement distincte en production', () => {
+    const jwt = 'x7Gq9'.repeat(8);
+    expect(() => validateEnv({ ...base, NODE_ENV: 'production', JWT_SECRET: jwt })).toThrow(/ENCRYPTION_KEY/);
+    expect(() =>
+      validateEnv({ ...base, NODE_ENV: 'production', JWT_SECRET: jwt, ENCRYPTION_KEY: jwt }),
+    ).toThrow(/différents de JWT_SECRET/);
+  });
+
+  it('accepte des secrets solides en production et active les cookies sécurisés', () => {
+    const env = validateEnv({
+      ...base,
+      NODE_ENV: 'production',
+      JWT_SECRET: 'x7Gq9'.repeat(8),
+      ENCRYPTION_KEY: 'Kp2wZ'.repeat(8),
+    });
     expect(env.COOKIE_SECURE).toBe(true);
   });
 });

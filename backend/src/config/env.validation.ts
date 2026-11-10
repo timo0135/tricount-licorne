@@ -15,6 +15,7 @@ export interface AppEnv {
   COOKIE_SECURE: boolean;
   TRUST_PROXY: number;
   UPLOADS_DIR: string;
+  ENCRYPTION_KEY: string;
 }
 
 export function validateEnv(raw: Record<string, unknown>): AppEnv {
@@ -52,6 +53,18 @@ export function validateEnv(raw: Record<string, unknown>): AppEnv {
     }
   }
 
+  // Clé de chiffrement des secrets de double authentification (distincte du secret JWT,
+  // qu'on peut ainsi changer sans casser la 2FA des utilisateurs).
+  const encryptionKey = str('ENCRYPTION_KEY') ?? (isProd ? '' : 'dev-uniquement-cle-de-chiffrement');
+  if (!encryptionKey) {
+    errors.push('ENCRYPTION_KEY est obligatoire en production (ex. : openssl rand -base64 48)');
+  } else if (isProd) {
+    const weak = WEAK_SECRETS.some((w) => encryptionKey.toLowerCase().includes(w));
+    if (encryptionKey.length < 32 || weak || encryptionKey === secret) {
+      errors.push('ENCRYPTION_KEY doit faire au moins 32 caractères aléatoires, différents de JWT_SECRET');
+    }
+  }
+
   const env: AppEnv = {
     NODE_ENV: nodeEnv,
     DATABASE_URL: databaseUrl ?? '',
@@ -63,6 +76,7 @@ export function validateEnv(raw: Record<string, unknown>): AppEnv {
     COOKIE_SECURE: (str('COOKIE_SECURE') ?? String(isProd)) === 'true',
     TRUST_PROXY: int('TRUST_PROXY', 1),
     UPLOADS_DIR: str('UPLOADS_DIR', `${process.cwd()}/uploads`)!,
+    ENCRYPTION_KEY: encryptionKey,
   };
 
   if (env.REFRESH_TOKEN_DAYS < 1 || env.REFRESH_TOKEN_DAYS > 365) {

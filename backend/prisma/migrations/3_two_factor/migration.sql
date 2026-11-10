@@ -1,0 +1,22 @@
+-- AlterTable
+ALTER TABLE "users" ADD COLUMN     "totpEnabledAt" TIMESTAMP(3),
+ADD COLUMN     "totpLastStep" INTEGER,
+ADD COLUMN     "totpPendingSecret" TEXT,
+ADD COLUMN     "totpSecret" TEXT;
+
+-- CreateTable
+CREATE TABLE "recovery_codes" (
+    "id" TEXT NOT NULL,
+    "codeHash" TEXT NOT NULL,
+    "usedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "userId" TEXT NOT NULL,
+
+    CONSTRAINT "recovery_codes_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE INDEX "recovery_codes_userId_idx" ON "recovery_codes"("userId");
+
+-- AddForeignKey
+ALTER TABLE "recovery_codes" ADD CONSTRAINT "recovery_codes_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;

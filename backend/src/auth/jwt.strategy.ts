@@ -18,7 +18,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: { sub: string }) {
+  async validate(payload: { sub: string; purpose?: string }) {
+    // Un jeton d'étape de double authentification n'ouvre jamais l'accès à l'API.
+    if (payload.purpose) throw new UnauthorizedException('Session expirée, reconnecte-toi.');
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       select: { id: true, email: true, name: true, emoji: true, color: true, avatarUrl: true },

@@ -32,6 +32,14 @@ model User {
   color     String   @default("#C9A7F5")
   /// Photo de profil (chemin servi par l'API), remplace l'emoji quand elle existe
   avatarUrl String?
+
+  /// Double authentification (TOTP). Secrets chiffrés (AES-256-GCM), jamais en clair.
+  totpSecret        String?
+  totpPendingSecret String?
+  totpEnabledAt     DateTime?
+  /// Dernier pas de 30 s accepté : un même code ne sert qu'une fois.
+  totpLastStep      Int?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -43,6 +51,7 @@ model User {
   settlementsTo   Settlement[]    @relation("SettlementTo")
   coefficients    CategoryShare[]
   refreshTokens   RefreshToken[]
+  recoveryCodes   RecoveryCode[]
 
   @@map("users")
 }
@@ -199,4 +208,18 @@ model RefreshToken {
 
   @@index([userId])
   @@map("refresh_tokens")
+}
+
+/// Code de secours de la double authentification : haché, à usage unique.
+model RecoveryCode {
+  id        String    @id @default(uuid())
+  codeHash  String
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("recovery_codes")
 }

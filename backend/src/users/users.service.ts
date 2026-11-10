@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateProfileDto } from './update-profile.dto';
 import { UploadedImage, UploadsService } from '../uploads/uploads.service';
+import { toPublicUser } from '../auth/auth.service';
 
 const PUBLIC_USER = {
   id: true,
@@ -10,6 +11,8 @@ const PUBLIC_USER = {
   emoji: true,
   color: true,
   avatarUrl: true,
+  totpEnabledAt: true,
+  createdAt: true,
 } as const;
 
 @Injectable()
@@ -19,12 +22,13 @@ export class UsersService {
     private uploads: UploadsService,
   ) {}
 
-  update(userId: string, dto: UpdateProfileDto) {
-    return this.prisma.user.update({
+  async update(userId: string, dto: UpdateProfileDto) {
+    const user = await this.prisma.user.update({
       where: { id: userId },
       data: { ...dto, name: dto.name?.trim() },
       select: PUBLIC_USER,
     });
+    return toPublicUser(user);
   }
 
   /** Photo de profil : recadrée en carré, convertie en WebP, EXIF supprimées. */
@@ -40,7 +44,7 @@ export class UsersService {
       select: PUBLIC_USER,
     });
     await this.uploads.remove(previous?.avatarUrl);
-    return user;
+    return toPublicUser(user);
   }
 
   async removeAvatar(userId: string) {
@@ -54,6 +58,6 @@ export class UsersService {
       select: PUBLIC_USER,
     });
     await this.uploads.remove(previous?.avatarUrl);
-    return user;
+    return toPublicUser(user);
   }
 }
