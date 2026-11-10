@@ -14,6 +14,7 @@ export interface AppEnv {
   CORS_ORIGIN: string;
   COOKIE_SECURE: boolean;
   TRUST_PROXY: number;
+  UPLOADS_DIR: string;
 }
 
 export function validateEnv(raw: Record<string, unknown>): AppEnv {
@@ -61,6 +62,7 @@ export function validateEnv(raw: Record<string, unknown>): AppEnv {
     CORS_ORIGIN: str('CORS_ORIGIN', 'http://localhost:5173')!,
     COOKIE_SECURE: (str('COOKIE_SECURE') ?? String(isProd)) === 'true',
     TRUST_PROXY: int('TRUST_PROXY', 1),
+    UPLOADS_DIR: str('UPLOADS_DIR', `${process.cwd()}/uploads`)!,
   };
 
   if (env.REFRESH_TOKEN_DAYS < 1 || env.REFRESH_TOKEN_DAYS > 365) {

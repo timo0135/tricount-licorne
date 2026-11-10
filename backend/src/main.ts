@@ -7,6 +7,7 @@ import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import type { AppEnv } from './config/env.validation';
+import { UPLOADS_PREFIX } from './uploads/uploads.service';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -26,6 +27,15 @@ async function bootstrap() {
       crossOriginResourcePolicy: { policy: 'same-site' },
     }),
   );
+
+  // Photos envoyées : noms aléatoires et immuables, mises en cache longtemps.
+  app.useStaticAssets(config.get('UPLOADS_DIR', { infer: true }), {
+    prefix: UPLOADS_PREFIX,
+    immutable: true,
+    maxAge: '365d',
+    index: false,
+    fallthrough: false,
+  });
 
   app.setGlobalPrefix('api');
   app.enableCors({

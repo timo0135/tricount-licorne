@@ -5,7 +5,7 @@ import {
   IsArray,
   IsIn,
   IsInt,
-  IsUUID,
+  Matches,
   Max,
   Min,
   ValidateNested,
@@ -13,9 +13,12 @@ import {
 import { CATEGORIES } from '../../common/categories';
 
 export class ShareDto {
-  @ApiProperty()
-  @IsUUID()
-  userId: string;
+  @ApiProperty({
+    description: 'Entité : « u:<id utilisateur> » pour une personne seule, « f:<id famille> » pour une famille',
+    example: 'u:3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90',
+  })
+  @Matches(/^[uf]:[0-9a-f-]{36}$/i, { message: 'Identifiant d’entité invalide' })
+  partyId: string;
 
   @ApiProperty({
     description: 'Coefficient en points de base : 10 000 = 100 %, 2 500 = 25 %',
@@ -34,7 +37,7 @@ export class CategoryCoefficientsDto {
   @IsIn(CATEGORIES as unknown as string[])
   category: string;
 
-  @ApiProperty({ type: [ShareDto], description: 'Toutes les licornes du troupeau, total = 10 000' })
+  @ApiProperty({ type: [ShareDto], description: 'Toutes les entités du troupeau (membres seuls et familles), total = 10 000' })
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })

@@ -11,13 +11,17 @@ import { CreateGroupDto } from './dto/create-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { JoinGroupDto } from './dto/join-group.dto';
 import { generateInviteCode, randomGradient } from '../common/unicorn';
+import { ImageKind, UploadedImage, UploadsService } from '../uploads/uploads.service';
 
 const MEMBER_SELECT = {
   id: true,
   role: true,
   joinedAt: true,
-  user: { select: { id: true, name: true, email: true, emoji: true, color: true } },
+  familyId: true,
+  user: { select: { id: true, name: true, email: true, emoji: true, color: true, avatarUrl: true } },
 } as const;
+
+const FAMILY_SELECT = { id: true, name: true } as const;
 
 @Injectable()
 export class GroupsService {
@@ -25,6 +29,7 @@ export class GroupsService {
     private prisma: PrismaService,
     private balances: BalancesService,
     private coefficients: CoefficientsService,
+    private uploads: UploadsService,
   ) {}
 
   /** Vérifie que l'utilisateur appartient bien au troupeau. */
@@ -58,7 +63,10 @@ export class GroupsService {
         inviteCode: await this.uniqueInviteCode(),
         members: { create: { userId, role: 'OWNER' } },
       },
-      include: { members: { select: MEMBER_SELECT } },
+      include: {
+        members: { select: MEMBER_SELECT },
+        families: { select: FAMILY_SELECT },
+      },
     });
 
     // Matrice de coefficients par défaut : tout le monde à parts égales.
@@ -71,7 +79,8 @@ export class GroupsService {
     const groups = await this.prisma.group.findMany({
       where: { members: { some: { userId } } },
       include: {
-        members: { select: MEMBER_SELECT },
+        members: { select: MEMBER_SELECT, orderBy: { joinedAt: 'asc' } },
+        families: { select: FAMILY_SELECT, orderBy: { createdAt: 'asc' } },
         _count: { select: { expenses: true } },
       },
       orderBy: { updatedAt: 'desc' },
@@ -79,14 +88,8 @@ export class GroupsService {
 
     return Promise.all(
       groups.map(async (group) => {
-        const summary = await this.balances.summary(group.id);
-        const mine = summary.balances.find((b) => b.userId === userId);
-        return {
-          ...group,
-          expenseCount: group._count.expenses,
-          totalCents: summary.totalCents,
-          myBalanceCents: mine?.balanceCents ?? 0,
-        };
+        const { totalCents, myBalanceCents } = await this.balances.balanceOf(group.id, userId);
+        return { ...group, expenseCount: group._count.expenses, totalCents, myBalanceCents };
       }),
     );
   }
@@ -97,36 +100,60 @@ export class GroupsService {
       where: { id: groupId },
       include: {
         members: { select: MEMBER_SELECT, orderBy: { joinedAt: 'asc' } },
+        families: { select: FAMILY_SELECT, orderBy: { createdAt: 'asc' } },
         _count: { select: { expenses: true } },
       },
     });
     if (!group) throw new NotFoundException('Troupeau introuvable.');
 
-    const summary = await this.balances.summary(groupId);
-    const mine = summary.balances.find((b) => b.userId === userId);
-    return {
-      ...group,
-      expenseCount: group._count.expenses,
-      totalCents: summary.totalCents,
-      myBalanceCents: mine?.balanceCents ?? 0,
-    };
+    const { totalCents, myBalanceCents } = await this.balances.balanceOf(groupId, userId);
+    return { ...group, expenseCount: group._count.expenses, totalCents, myBalanceCents };
   }
 
   async update(userId: string, groupId: string, dto: UpdateGroupDto) {
     await this.assertMember(userId, groupId);
-    return this.prisma.group.update({
+    await this.prisma.group.update({
       where: { id: groupId },
       data: {
         ...dto,
+        name: dto.name?.trim(),
         currency: dto.currency ? dto.currency.toUpperCase() : undefined,
       },
-      include: { members: { select: MEMBER_SELECT } },
     });
+    return this.findOne(userId, groupId);
+  }
+
+  /** Photo carrée ou bannière du troupeau ; tout membre peut la changer. */
+  async setImage(userId: string, groupId: string, kind: 'photo' | 'banner', file?: UploadedImage) {
+    await this.assertMember(userId, groupId);
+    const field = kind === 'photo' ? 'photoUrl' : 'bannerUrl';
+    const imageKind: ImageKind = kind === 'photo' ? 'group' : 'banner';
+    const url = await this.uploads.saveImage(file, imageKind);
+    const previous = await this.prisma.group.findUnique({
+      where: { id: groupId },
+      select: { photoUrl: true, bannerUrl: true },
+    });
+    await this.prisma.group.update({ where: { id: groupId }, data: { [field]: url } });
+    await this.uploads.remove(previous?.[field]);
+    return this.findOne(userId, groupId);
+  }
+
+  async removeImage(userId: string, groupId: string, kind: 'photo' | 'banner') {
+    await this.assertMember(userId, groupId);
+    const field = kind === 'photo' ? 'photoUrl' : 'bannerUrl';
+    const previous = await this.prisma.group.findUnique({
+      where: { id: groupId },
+      select: { photoUrl: true, bannerUrl: true },
+    });
+    await this.prisma.group.update({ where: { id: groupId }, data: { [field]: null } });
+    await this.uploads.remove(previous?.[field]);
+    return this.findOne(userId, groupId);
   }
 
   async remove(userId: string, groupId: string) {
     await this.assertOwner(userId, groupId);
-    await this.prisma.group.delete({ where: { id: groupId } });
+    const group = await this.prisma.group.delete({ where: { id: groupId } });
+    await Promise.all([this.uploads.remove(group.photoUrl), this.uploads.remove(group.bannerUrl)]);
     return { deleted: true };
   }
 
@@ -170,7 +197,7 @@ export class GroupsService {
     });
     if (involved > 0) {
       throw new BadRequestException(
-        'Impossible de retirer une licorne liée à des dépenses. Supprime ou réattribue ses dépenses d\'abord.',
+        'Impossible de retirer un membre lié à des dépenses. Supprime ou réattribue ses dépenses d\'abord.',
       );
     }
 
@@ -189,7 +216,9 @@ export class GroupsService {
     }
 
     await this.prisma.membership.delete({ where: { id: membership.id } });
-    // Son coefficient est redistribué au prorata des licornes restantes.
+    // Une famille qui n'a plus de membre disparaît.
+    await this.prisma.family.deleteMany({ where: { groupId, members: { none: {} } } });
+    // Son coefficient est redistribué au prorata des membres restants.
     await this.coefficients.sync(groupId);
     return { removed: true };
   }

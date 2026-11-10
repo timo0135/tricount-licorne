@@ -12,6 +12,8 @@ import { BalancesModule } from './balances/balances.module';
 import { SettlementsModule } from './settlements/settlements.module';
 import { CoefficientsModule } from './coefficients/coefficients.module';
 import { HealthModule } from './health/health.module';
+import { FamiliesModule } from './families/families.module';
+import { UploadsModule } from './uploads/uploads.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 
 @Module({
@@ -20,6 +22,7 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
     // 120 requêtes par minute et par adresse IP ; les routes sensibles sont plus strictes.
     ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 120 }]),
     PrismaModule,
+    UploadsModule,
     AuthModule,
     UsersModule,
     GroupsModule,
@@ -28,6 +31,7 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
     SettlementsModule,
     CoefficientsModule,
     HealthModule,
+    FamiliesModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

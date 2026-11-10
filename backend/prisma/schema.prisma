@@ -30,6 +30,8 @@ model User {
   // Identité licorne : un emoji + une couleur pastel générés à l'inscription
   emoji     String   @default("🦄")
   color     String   @default("#C9A7F5")
+  /// Photo de profil (chemin servi par l'API), remplace l'emoji quand elle existe
+  avatarUrl String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -53,11 +55,15 @@ model Group {
   emoji       String   @default("🦄")
   // Dégradé pastel utilisé pour la carte du groupe dans le front
   gradient    String   @default("aurora")
+  /// Photo carrée du troupeau et bannière 3:1 (chemins servis par l'API)
+  photoUrl    String?
+  bannerUrl   String?
   inviteCode  String   @unique
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   members      Membership[]
+  families     Family[]
   expenses     Expense[]
   settlements  Settlement[]
   coefficients CategoryShare[]
@@ -94,9 +100,30 @@ model Membership {
   groupId String
   group   Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
+  /// Famille du membre dans ce troupeau (null = compte pour lui seul)
+  familyId String?
+  family   Family? @relation(fields: [familyId], references: [id], onDelete: SetNull)
+
   @@unique([userId, groupId])
   @@index([groupId])
+  @@index([familyId])
   @@map("memberships")
+}
+
+/// Famille d'un troupeau : plusieurs membres qui comptent pour une seule entité
+/// (un coefficient, un solde, des remboursements communs).
+model Family {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  groupId String
+  group   Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  members Membership[]
+
+  @@index([groupId])
+  @@map("families")
 }
 
 model Expense {

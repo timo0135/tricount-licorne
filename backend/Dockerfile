@@ -30,8 +30,8 @@ RUN npx prisma generate
 COPY --from=build /app/dist ./dist
 COPY docker-entrypoint.sh ./
 
-# Utilisateur sans privilèges, fourni par l'image node
-RUN chown -R node:node /app
+# Dossier des photos envoyées (monté sur un volume) et utilisateur sans privilèges
+RUN mkdir -p /app/uploads && chown -R node:node /app
 USER node
 
 EXPOSE 3000

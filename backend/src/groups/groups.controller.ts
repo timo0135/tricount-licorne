@@ -6,6 +6,8 @@ import {
   Param,
   Patch,
   Post,
+  Put,
+  UploadedFile,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { GroupsService } from './groups.service';
@@ -14,6 +16,8 @@ import { CreateGroupDto } from './dto/create-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { JoinGroupDto } from './dto/join-group.dto';
 import { AuthUser, CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ImageUpload } from '../uploads/image-upload.decorator';
+import type { UploadedImage } from '../uploads/uploads.service';
 
 @ApiTags('groups')
 @ApiBearerAuth()
@@ -52,6 +56,40 @@ export class GroupsController {
     return this.groups.update(user.id, id, dto);
   }
 
+  @Put(':id/photo')
+  @ImageUpload()
+  @ApiOperation({ summary: 'Changer la photo du troupeau (recadrée en carré)' })
+  setPhoto(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @UploadedFile() file: UploadedImage,
+  ) {
+    return this.groups.setImage(user.id, id, 'photo', file);
+  }
+
+  @Delete(':id/photo')
+  @ApiOperation({ summary: 'Retirer la photo du troupeau' })
+  removePhoto(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.groups.removeImage(user.id, id, 'photo');
+  }
+
+  @Put(':id/banner')
+  @ImageUpload()
+  @ApiOperation({ summary: 'Changer la bannière du troupeau (recadrée en 3:1)' })
+  setBanner(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @UploadedFile() file: UploadedImage,
+  ) {
+    return this.groups.setImage(user.id, id, 'banner', file);
+  }
+
+  @Delete(':id/banner')
+  @ApiOperation({ summary: 'Retirer la bannière du troupeau' })
+  removeBanner(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.groups.removeImage(user.id, id, 'banner');
+  }
+
   @Delete(':id')
   remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.groups.remove(user.id, id);
@@ -64,7 +102,7 @@ export class GroupsController {
   }
 
   @Delete(':id/members/:userId')
-  @ApiOperation({ summary: 'Quitter le troupeau ou en retirer une licorne' })
+  @ApiOperation({ summary: 'Quitter le troupeau ou en retirer un membre' })
   removeMember(
     @CurrentUser() user: AuthUser,
     @Param('id') id: string,

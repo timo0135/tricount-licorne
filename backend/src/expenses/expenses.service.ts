@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { buildPartyIndex, splitByParties } from '../families/parties.util';
 import { GroupsService } from '../groups/groups.service';
 import { CoefficientsService } from '../coefficients/coefficients.service';
 import { CreateExpenseDto, SplitModeDto } from './dto/create-expense.dto';
@@ -7,10 +8,10 @@ import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { ComputedShare, splitByWeights, validateExactShares } from '../common/split';
 
 const EXPENSE_INCLUDE = {
-  paidBy: { select: { id: true, name: true, emoji: true, color: true } },
-  createdBy: { select: { id: true, name: true, emoji: true } },
+  paidBy: { select: { id: true, name: true, emoji: true, color: true, avatarUrl: true } },
+  createdBy: { select: { id: true, name: true, emoji: true, avatarUrl: true } },
   shares: {
-    include: { user: { select: { id: true, name: true, emoji: true, color: true } } },
+    include: { user: { select: { id: true, name: true, emoji: true, color: true, avatarUrl: true } } },
   },
 } as const;
 
@@ -222,7 +223,9 @@ export class ExpensesService {
             participants.map((p) => ({ userId: p.userId, weight: 1 })),
           );
         }
-        return splitByWeights(amountCents, weighted);
+        // Répartition entre entités (une famille = une entité), puis dans chaque famille.
+        const index = buildPartyIndex(await this.coefficients.links(groupId));
+        return splitByParties(amountCents, weighted, index);
       }
 
       const weighted =

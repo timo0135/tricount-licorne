@@ -4,8 +4,8 @@ import { GroupsService } from '../groups/groups.service';
 import { CreateSettlementDto } from './dto/create-settlement.dto';
 
 const SETTLEMENT_INCLUDE = {
-  fromUser: { select: { id: true, name: true, emoji: true, color: true } },
-  toUser: { select: { id: true, name: true, emoji: true, color: true } },
+  fromUser: { select: { id: true, name: true, emoji: true, color: true, avatarUrl: true } },
+  toUser: { select: { id: true, name: true, emoji: true, color: true, avatarUrl: true } },
 } as const;
 
 @Injectable()

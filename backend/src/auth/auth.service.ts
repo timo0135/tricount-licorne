@@ -16,6 +16,7 @@ const PUBLIC_USER = {
   name: true,
   emoji: true,
   color: true,
+  avatarUrl: true,
   createdAt: true,
 } as const;
 
@@ -26,7 +27,15 @@ export interface SessionMeta {
   userAgent?: string;
 }
 
-type PublicUser = { id: string; email: string; name: string; emoji: string; color: string; createdAt: Date };
+type PublicUser = {
+  id: string;
+  email: string;
+  name: string;
+  emoji: string;
+  color: string;
+  avatarUrl: string | null;
+  createdAt: Date;
+};
 
 export interface IssuedSession {
   user: PublicUser;
